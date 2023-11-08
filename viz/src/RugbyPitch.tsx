@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { DashboardPartitionState } from './dashboard_state';
-import Chart from 'chart.js/auto';
-import zoomPlugin from 'chartjs-plugin-zoom';
+import rugbyPitchImage from '../../assets/pitch-background.png';
+import ballImage from '../../assets/trywizard-ball.png';
 
 
-const Dashboard: React.FC = () => {
+const RugbyPitch: React.FC = () => {
   const [data, setData] = useState<{
     cumulativeTimesteps: number;
     partitionIndex: number;
@@ -12,82 +12,20 @@ const Dashboard: React.FC = () => {
   }[]>([]);
   const [chartUpdatesEnabled, setChartUpdatesEnabled] = useState(true);
   const [selectedPartitionIndex, setSelectedPartitionIndex] = useState<string | null>(null);
-  const chartRef = useRef<HTMLCanvasElement | null>(null);
-  const chartInstanceRef = useRef<Chart | null>(null);
-  const [lineColours, setLineColours] = useState<{
-    [partitionIndexString: string]: { [index: number]: string }
-  }>({});
-  Chart.register(zoomPlugin);
-
-  function getRandomColour() {
-    const letters = '0123456789ABCDEF';
-    let color = '#';
-    const minBrightness = 0.6;
-  
-    for (let i = 0; i < 6; i++) {
-      color += letters[Math.floor(Math.random() * 16)];
-    }
-  
-    // Get the RGB components of the color
-    const red = parseInt(color.substring(1, 3), 16);
-    const green = parseInt(color.substring(3, 5), 16);
-    const blue = parseInt(color.substring(5, 7), 16);
-  
-    // Calculate the brightness of the color (normalized value between 0 and 1)
-    const brightness = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
-  
-    // If the brightness is below the minimum, adjust the color to make it brighter
-    if (brightness < minBrightness) {
-      const correctionFactor = minBrightness / brightness;
-      const newRed = Math.min(255, Math.floor(red * correctionFactor));
-      const newGreen = Math.min(255, Math.floor(green * correctionFactor));
-      const newBlue = Math.min(255, Math.floor(blue * correctionFactor));
-  
-      // Convert the RGB components back to hexadecimal and update the color
-      color = `#${(newRed < 16 ? '0' : '') + newRed.toString(16)}` +
-              `${(newGreen < 16 ? '0' : '') + newGreen.toString(16)}` +
-              `${(newBlue < 16 ? '0' : '') + newBlue.toString(16)}`;
-    }
-  
-    return color;
-  }
 
   // create a memoized version of a function that generates the datasets
   const datasets = useMemo(() => {
     const result: { [partitionIndex: string]: {
       label: string;
       data: {
-        x: number;
-        y: number;
+        time: number;
+        state: number;
       }[];
-      borderColor: string;
-      borderWidth: number;
-      fill: boolean;
     }[]} = {};
 
     data.forEach((datum) => {
       for (let index = 0; index < datum.state.length; index++) {
         const partitionIndexString = String(datum.partitionIndex);
-
-        if (!(partitionIndexString in lineColours)) {
-          setLineColours((prevLineColours) => ({
-            ...prevLineColours,
-            [partitionIndexString]: {},
-          }));
-          lineColours[partitionIndexString] = {}
-        }
-
-        if (!(index in lineColours[partitionIndexString])) {
-          const colour = getRandomColour()
-          setLineColours((prevLineColours) => ({
-            ...prevLineColours,
-            [partitionIndexString]: {
-              ...prevLineColours[partitionIndexString],
-              [index]: colour,
-            },
-          }));
-          lineColours[partitionIndexString][index] = colour
-        }
 
         if (!(partitionIndexString in result)) {
           result[partitionIndexString] = [];
@@ -97,24 +35,21 @@ const Dashboard: React.FC = () => {
           result[partitionIndexString].push({
             label: `Element ${index}`,
             data: [{
-              x: datum.cumulativeTimesteps,
-              y: datum.state[index],
+              time: datum.cumulativeTimesteps,
+              state: datum.state[index],
             }],
-            borderColor: lineColours[partitionIndexString][index],
-            borderWidth: 2,
-            fill: false,
           });
         } else {
           result[partitionIndexString][index].data.push({
-            x: datum.cumulativeTimesteps,
-            y: datum.state[index],
+            time: datum.cumulativeTimesteps,
+            state: datum.state[index],
           })
         }
       }
     });
 
     return result;
-  }, [data, lineColours]);
+  }, [data]);
 
   useEffect(() => {
     const ws = new WebSocket('ws://localhost:2112/dashboard');
@@ -149,132 +84,29 @@ const Dashboard: React.FC = () => {
     setSelectedPartitionIndex(partitionIndex);
   };
 
-  const resetZoom = () => {
-    if (chartInstanceRef.current) {
-      chartInstanceRef.current.resetZoom();
-    }
-  };
-
-  const handleKeyPress = (event: KeyboardEvent) => {
-    if (event.key === 'r') {
-      resetZoom();
-    }
-  };
-
-  useEffect(() => {
-    window.addEventListener('keypress', handleKeyPress);
-
-    // Clean up the event listener when the component unmounts
-    return () => {
-      window.removeEventListener('keypress', handleKeyPress);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!chartRef.current || selectedPartitionIndex === null) return;
-
-    if (!datasets[selectedPartitionIndex].length) return;
-
-    if (chartInstanceRef.current) {
-      chartInstanceRef.current.destroy();
-    }
-
-    const chartData = {
-      datasets: datasets[selectedPartitionIndex],
-    };
-
-    const ctx = chartRef.current.getContext('2d');
-    if (ctx) {
-      chartRef.current.height = 300;
-      chartInstanceRef.current = new Chart(ctx, {
-        type: 'line',
-        data: chartData,
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: {
-            duration: 0
-          },
-          scales: {
-            x: {
-              type: 'linear',
-              position: 'bottom',
-              grid: {
-                display: false
-              },
-              ticks: {
-                color: 'white'
-              },
-            },
-            y: {
-              display: true,
-              grid: {
-                display: false
-              },
-              ticks: {
-                color: 'white'
-              },
-            },
-          },
-          plugins: {
-            legend: {
-              labels: {
-                color: 'white'
-              }
-            },
-            title: {
-              display: false
-            },
-            zoom: {
-              pan: {
-                enabled: true,
-                mode: 'xy',
-                modifierKey: 'ctrl',
-              },
-              zoom: {
-                drag: {
-                  enabled: true,
-                  modifierKey: 'shift',
-                },
-                wheel: {
-                  enabled: true,
-                },
-                pinch: {
-                  enabled: true
-                },
-                mode: 'xy',
-              },
-            },
-          },
-          elements: {
-            point: {
-              borderColor: 'white',
-              borderWidth: 1
-            },
-            line: {
-              borderColor: 'white',
-              borderWidth: 1
-            }
-          }
-        },
-      });
-    }
-  }, [selectedPartitionIndex, chartUpdatesEnabled && datasets]);
-  
-  const handleToggleChartUpdates = () => {
-    setChartUpdatesEnabled((prev) => !prev); // Toggle the state between true and false
-  };
-
   return (
     <div>
       <div className="flex items-center justify-center h-64 border border-gray-300 rounded-lg p-4">
-        <canvas ref={chartRef} width="400" height="200" />
+        <div className="rugby-pitch-container">
+          <img src={rugbyPitchImage} alt="Rugby Pitch" className="rugby-pitch-image" />
+          {data.map((datum, index) => (
+            <img
+              key={index}
+              src={ballImage}
+              alt="Rugby Ball"
+              style={{
+                position: 'absolute',
+                top: `${datum.state[1]}px`,
+                left: `${datum.state[0]}px`,
+                transition: 'top 0.5s, left 0.5s', // CSS transition for smooth animation
+              }}
+              className={`ball-image ${String(datum.partitionIndex) === selectedPartitionIndex ? 'visible' : ''}`}
+            />
+          ))}
+        </div>
       </div>
       <div>
         <div>
-          <button onClick={handleToggleChartUpdates}>
-            {chartUpdatesEnabled ? 'Disable Live Updates' : 'Enable Live Updates'}
-          </button><br/>
           {Object.entries(datasets).map(([k, v]) => (
             <button
               key={k}
@@ -289,4 +121,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard;
+export default RugbyPitch;
