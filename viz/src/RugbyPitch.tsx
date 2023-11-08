@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { DashboardPartitionState } from './dashboard_state';
-import rugbyPitchImage from '../../assets/pitch-background.png';
-import ballImage from '../../assets/trywizard-ball.png';
+import rugbyPitchImage from './assets/pitch-background.png';
+import ballImage from './assets/trywizard-ball.png';
 
 
 const RugbyPitch: React.FC = () => {
@@ -10,7 +10,6 @@ const RugbyPitch: React.FC = () => {
     partitionIndex: number;
     state: number[];
   }[]>([]);
-  const [chartUpdatesEnabled, setChartUpdatesEnabled] = useState(true);
   const [selectedPartitionIndex, setSelectedPartitionIndex] = useState<string | null>(null);
 
   // create a memoized version of a function that generates the datasets
@@ -96,9 +95,9 @@ const RugbyPitch: React.FC = () => {
               alt="Rugby Ball"
               style={{
                 position: 'absolute',
-                top: `${datum.state[1]}px`,
-                left: `${datum.state[0]}px`,
-                transition: 'top 0.5s, left 0.5s', // CSS transition for smooth animation
+                top: `${datum.state[2]}px`,
+                left: `${datum.state[3]}px`,
+                transition: 'top 0.5s, left 0.5s',
               }}
               className={`ball-image ${String(datum.partitionIndex) === selectedPartitionIndex ? 'visible' : ''}`}
             />

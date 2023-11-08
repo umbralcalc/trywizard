@@ -1,4 +1,4 @@
-package phenomena
+package rugby_simulation
 
 import (
 	"testing"

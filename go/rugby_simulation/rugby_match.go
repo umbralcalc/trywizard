@@ -1,4 +1,4 @@
-package phenomena
+package rugby_simulation
 
 import (
 	"fmt"
@@ -9,53 +9,37 @@ import (
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
-// GetRugbyMatchPitchDimensions returns a tuple of pitch dimensions (Lon, Lat).
-func GetRugbyMatchPitchDimensions() (float64, float64) {
-	return 100.0, 70.0
-}
+const PitchLon = 100.0
+const PitchLat = 70.0
 
-// GetRugbyMatchPossessionMap returns a map from the integer possession Id to a
-// string description.
-func GetRugbyMatchPossessionMap() map[int]string {
-	return map[int]string{0: "Home Team", 1: "Away Team"}
+var PossessionMap = map[int]string{0: "Home Team", 1: "Away Team"}
+var MatchStateMap = map[int]string{
+	0:  "Penalty",
+	1:  "Free Kick",
+	2:  "Goal",
+	3:  "Drop Goal",
+	4:  "Try",
+	5:  "Kick Phase",
+	6:  "Run Phase",
+	7:  "Knock-on",
+	8:  "Scrum",
+	9:  "Lineout",
+	10: "Ruck",
+	11: "Maul",
+	12: "Kickoff",
 }
-
-// GetRugbyMatchStateMap returns a map from the integer state Id to a
-// string description.
-func GetRugbyMatchStateMap() map[int]string {
-	return map[int]string{
-		0:  "Penalty",
-		1:  "Free Kick",
-		2:  "Goal",
-		3:  "Drop Goal",
-		4:  "Try",
-		5:  "Kick Phase",
-		6:  "Run Phase",
-		7:  "Knock-on",
-		8:  "Scrum",
-		9:  "Lineout",
-		10: "Ruck",
-		11: "Maul",
-		12: "Kickoff",
-	}
-}
-
-// GetRugbyMatchStateValueIndices returns a map human-interpretable strings to state
-// value indices.
-func GetRugbyMatchStateValueIndices() map[string]int {
-	return map[string]int{
-		"Match State":              0,
-		"Possession State":         1,
-		"Longitudinal Pitch State": 2,
-		"Lateral Pitch State":      3,
-		"Home Team Score":          4,
-		"Away Team Score":          5,
-		"Last Match State":         6,
-		"Next Match State":         7,
-		"Current Attacker":         8,
-		"Current Defender":         9,
-		"Play Direction":           10,
-	}
+var MatchStateValueIndices = map[string]int{
+	"Match State":              0,
+	"Possession State":         1,
+	"Longitudinal Pitch State": 2,
+	"Lateral Pitch State":      3,
+	"Home Team Score":          4,
+	"Away Team Score":          5,
+	"Last Match State":         6,
+	"Next Match State":         7,
+	"Current Attacker":         8,
+	"Current Defender":         9,
+	"Play Direction":           10,
 }
 
 // getPlayerFatigue is an internal method to retrieve a player's fatigue factor.
@@ -492,8 +476,9 @@ func (r *RugbyMatchIteration) Configure(
 	catDist := distuv.NewCategorical(weights, rand.NewSource(seed))
 	rand.Seed(seed)
 
-	r.indices = GetRugbyMatchStateValueIndices()
-	r.maxLon, r.maxLat = GetRugbyMatchPitchDimensions()
+	r.indices = MatchStateValueIndices
+	r.maxLon = PitchLon
+	r.maxLat = PitchLat
 	r.normalDist = &distuv.Normal{
 		Mu:    0.0,
 		Sigma: 1.0,

@@ -1,4 +1,4 @@
-module github.com/ObservedWorld/trywizard/go/simulation
+module github.com/worldsoop/trywizard/go
 
 go 1.21.1
 
@@ -12,5 +12,4 @@ require (
 require (
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	scientificgo.org/special v0.0.0 // indirect
 )

@@ -11,8 +11,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/umbralcalc/stochadex/pkg/interactions"
-	"github.com/umbralcalc/stochadex/pkg/phenomena"
 	"github.com/umbralcalc/stochadex/pkg/simulator"
+
+	"github.com/worldsoop/trywizard/go/rugby_simulation"
 )
 
 var upgrader = websocket.Upgrader{
@@ -21,7 +22,7 @@ var upgrader = websocket.Upgrader{
 
 func startVizApp() (*os.Process, error) {
 	cmd := exec.Command("serve", "-s", "build")
-	cmd.Dir = "app/"
+	cmd.Dir = "../viz/"
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -62,27 +63,32 @@ func LoadStepperOrRunner(
 }
 
 func main() {
-	settings := simulator.NewLoadSettingsConfigFromYaml("./simulation/rugby_match_config.yaml")
-	iterations := []simulator.Iteration{&phenomena.WienerProcessIteration{}, &phenomena.WienerProcessIteration{}}
+	settings := simulator.NewLoadSettingsConfigFromYaml("./rugby_simulation/rugby_match_config.yaml")
+	iterations := []simulator.Iteration{&rugby_simulation.RugbyMatchIteration{}}
 	for partitionIndex := range settings.StateWidths {
 		iterations[partitionIndex].Configure(partitionIndex, settings)
 	}
 	implementations := &simulator.LoadImplementationsConfig{
 		Iterations:           iterations,
 		OutputCondition:      &simulator.EveryStepOutputCondition{},
-		OutputFunction:       &simulator.StdoutOutputFunction{},
-		TerminationCondition: &simulator.NumberOfStepsTerminationCondition{MaxNumberOfSteps: 1000},
+		OutputFunction:       &simulator.NilOutputFunction{},
+		TerminationCondition: &simulator.NumberOfStepsTerminationCondition{MaxNumberOfSteps: 100},
 		TimestepFunction:     &simulator.ConstantTimestepFunction{Stepsize: 1.0},
 	}
-	agents := []*interactions.AgentConfig{{Actor: &interactions.DoNothingActor{}, Generator: &interactions.DoNothingActionGenerator{}, Observation: &interactions.GaussianNoiseStateObservation{}}, {Actor: &interactions.DoNothingActor{}, Generator: &interactions.DoNothingActionGenerator{}, Observation: &interactions.GaussianNoiseStateObservation{}}}
+	agents := []*interactions.AgentConfig{}
+	// agents := []*interactions.AgentConfig{
+	// 	{
+	// 		Actor:       &interactions.DoNothingActor{},
+	// 		Generator:   &interactions.DoNothingActionGenerator{},
+	// 		Observation: &interactions.GaussianNoiseStateObservation{},
+	// 	},
+	// }
 	var vizProcess *os.Process
-	if true {
-		vizProcess, err := startVizApp()
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer vizProcess.Signal(os.Interrupt)
+	vizProcess, err := startVizApp()
+	if err != nil {
+		log.Fatal(err)
 	}
+	defer vizProcess.Signal(os.Interrupt)
 	http.HandleFunc(
 		"/dashboard",
 		func(w http.ResponseWriter, r *http.Request) {
@@ -107,8 +113,6 @@ func main() {
 		},
 	)
 	log.Fatal(http.ListenAndServe(":2112", nil))
-	if true {
-		vizProcess.Signal(os.Interrupt)
-		vizProcess.Wait()
-	}
+	vizProcess.Signal(os.Interrupt)
+	vizProcess.Wait()
 }
