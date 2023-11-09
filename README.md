@@ -7,3 +7,13 @@ Trywizard a simple event-based rugby match management simulator written in `Go` 
 <p align="center">
 <img src="./viz/src/assets/pitch-background.png" width="400"/>
 </p>
+
+## How to run the visualisation app
+
+```shell
+# install the dependencies of and build the app
+cd ./viz && npm install && npm run build && cd ..
+
+# run the main script and checkout http://localhost:3000
+cd ./go && go run main.go
+```

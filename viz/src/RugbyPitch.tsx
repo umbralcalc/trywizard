@@ -62,7 +62,7 @@ const RugbyPitch: React.FC = () => {
     ws.onmessage = async (event: MessageEvent) => {
       const decodedMessage = DashboardPartitionState.deserializeBinary(event.data);
       setData((prevData) => [
-        ...prevData, {
+        {
           cumulativeTimesteps: decodedMessage.cumulative_timesteps, 
           partitionIndex: decodedMessage.partition_index, 
           state: decodedMessage.state
@@ -99,7 +99,7 @@ const RugbyPitch: React.FC = () => {
                   gridArea: 'center',
                   bottom: `${110.0 * (datum.state[3]) / 70.0}%`,
                   left: `${97.5 * (datum.state[2]) / 100.0}%`,
-                  transition: 'bottom 0.5s, left 0.5s',
+                  transition: 'top 0.5s ease-in-out, left 0.5s ease-in-out',
                 }}
               >
                 <img

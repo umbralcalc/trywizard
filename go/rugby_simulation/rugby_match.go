@@ -506,9 +506,8 @@ func (r *RugbyMatchIteration) Iterate(
 	state[r.indices["Play Direction"]] = 1.0*state[1] - 1.0*(1-state[1])
 	matchState := fmt.Sprintf("%d", int(state[0]))
 	transitions := otherParams.IntParams["transitions_from_"+matchState]
-	nextState := int64(state[r.indices["Next Match State"]])
 	// if we are currently not planned to do anything, find the next transition
-	if state[0] == float64(nextState) {
+	if state[0] == float64(state[r.indices["Next Match State"]]) {
 		// compute the cumulative rates and overall normalisation for transitions
 		cumulative := 0.0
 		cumulativeProbs := make([]float64, 0)
@@ -522,7 +521,7 @@ func (r *RugbyMatchIteration) Iterate(
 		for i, prob := range cumulativeProbs {
 			if transitionEvent*normalisation < prob {
 				if (i == 0) || (transitionEvent*normalisation >= cumulativeProbs[i-1]) {
-					nextState = transitions[i]
+					state[r.indices["Next Match State"]] = float64(transitions[i])
 					break
 				}
 			}
@@ -530,7 +529,7 @@ func (r *RugbyMatchIteration) Iterate(
 	}
 	// figure out if the next event should happen yet
 	probDoNothing := 1.0 / (1.0 + timestepsHistory.NextIncrement*
-		otherParams.FloatParams["background_event_rates"][nextState])
+		otherParams.FloatParams["background_event_rates"][int64(state[r.indices["Next Match State"]])])
 	event := r.unitUniformDist.Rand()
 	if event < probDoNothing {
 		// if the state hasn't changed then continue without doing anything else
