@@ -251,8 +251,8 @@ func getRunPossessionFactor(
 }
 
 // RugbyMatchIteration defines an iteration for a model of a rugby match
-// which was defined in this chapter of the book Diffusing Ideas:
-// https://umbralcalc.github.io/diffusing-ideas/managing_a_rugby_match/chapter.pdf
+// which was defined in this chapter of the book Worlds Of Observation:
+// https://umbralcalc.github.io/worlds-of-observation/managing_a_rugby_match/chapter.pdf
 type RugbyMatchIteration struct {
 	maxLat          float64
 	maxLon          float64
