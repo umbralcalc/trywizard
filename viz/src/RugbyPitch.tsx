@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { DashboardPartitionState } from './dashboard_state';
 import rugbyPitchImage from './assets/pitch-background.png';
 import ballImage from './assets/trywizard-ball.png';
+import './App.css';
 
 
 const RugbyPitch: React.FC = () => {
@@ -87,21 +88,28 @@ const RugbyPitch: React.FC = () => {
     <div>
       <div className="flex items-center justify-center h-64 border border-gray-300 rounded-lg p-4">
         <div className="rugby-pitch-container">
-          <img src={rugbyPitchImage} alt="Rugby Pitch" className="rugby-pitch-image" />
-          {data.map((datum, index) => (
-            <img
-              key={index}
-              src={ballImage}
-              alt="Rugby Ball"
-              style={{
-                position: 'absolute',
-                top: `${datum.state[2]}px`,
-                left: `${datum.state[3]}px`,
-                transition: 'top 0.5s, left 0.5s',
-              }}
-              className={`ball-image ${String(datum.partitionIndex) === selectedPartitionIndex ? 'visible' : ''}`}
-            />
-          ))}
+          <div className="pitch-image-wrapper">
+            <img src={rugbyPitchImage} alt="Rugby Pitch" className="rugby-pitch-image" />
+            {data.map((datum, index) => (
+              <div
+                key={index}
+                className="ball-image"
+                style={{
+                  position: 'absolute',
+                  gridArea: 'center',
+                  bottom: `${110.0 * (datum.state[3]) / 70.0}%`,
+                  left: `${97.5 * (datum.state[2]) / 100.0}%`,
+                  transition: 'bottom 0.5s, left 0.5s',
+                }}
+              >
+                <img
+                  src={ballImage}
+                  alt="Rugby Ball"
+                  width="30"
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       <div>

@@ -338,7 +338,6 @@ func (r *RugbyMatchIteration) getLongitudinalKickChange(
 	otherParams *simulator.OtherParams,
 ) []float64 {
 	lastState := int(state[r.indices["Last Match State"]])
-	currentAttacker := int(state[r.indices["Current Attacker"]])
 	// if this is a kick at goal or a drop goal don't move
 	if ((lastState == 0) && (state[0] == 2)) ||
 		((lastState == 5) && (state[0] == 3)) {
@@ -349,7 +348,7 @@ func (r *RugbyMatchIteration) getLongitudinalKickChange(
 		newLonState := state[2]
 		// choose a kicker at random
 		possibleKickers := []float64{9, 10, 11, 14, 15}
-		currentAttacker = int(possibleKickers[int(rand.Intn(5))])
+		currentAttacker := int(possibleKickers[int(rand.Intn(5))])
 		var kickerIndex int
 		if (currentAttacker == 9) || (currentAttacker == 10) {
 			kickerIndex = (currentAttacker - 9) + 2*int(state[1])
