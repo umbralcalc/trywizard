@@ -14,6 +14,22 @@ const RugbyPitch: React.FC = () => {
   const [selectedPartitionIndex, setSelectedPartitionIndex] = useState<string | null>(null);
   const [scoreboard, setScoreboard] = useState<number[]>([0, 0]);
   const [currentTime, setCurrentTime] = useState<number>(0);
+  const [currentEvent, setCurrentEvent] = useState<string>("");
+  var gameStates: {[value: number] : string; } = {
+    0:  "Penalty",
+    1:  "Free Kick",
+    2:  "Goal",
+    3:  "Drop Goal",
+    4:  "Try",
+    5:  "Kick Phase",
+    6:  "Run Phase",
+    7:  "Knock-on",
+    8:  "Scrum",
+    9:  "Lineout",
+    10: "Ruck",
+    11: "Maul",
+    12: "Kickoff",
+  };
 
   // create a memoized version of a function that generates the datasets
   const datasets = useMemo(() => {
@@ -73,6 +89,7 @@ const RugbyPitch: React.FC = () => {
 
       setScoreboard([decodedMessage.state[4], decodedMessage.state[5]]);
       setCurrentTime(decodedMessage.cumulative_timesteps);
+      setCurrentEvent(gameStates[decodedMessage.state[0]]);
     };
 
     ws.onclose = () => {
@@ -119,6 +136,7 @@ const RugbyPitch: React.FC = () => {
         <div className="scoreboard-container">
           <p><strong>Score:</strong> Home - {scoreboard[0]} | Away - {scoreboard[1]}</p>
           <p><strong>Time:</strong> {currentTime}</p>
+          <p><strong>Event:</strong> {currentEvent}</p>
         </div>
       </div>
       <div>
