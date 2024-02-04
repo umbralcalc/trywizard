@@ -2,3 +2,4 @@ viz/node_modules/**
 .vscode/**
 venv/**
 .env
+__pycache__
