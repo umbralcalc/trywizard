@@ -465,7 +465,7 @@ func (r *RugbyMatchIteration) possessionChangeCanOccur(state []float64) bool {
 
 func (r *RugbyMatchIteration) Configure(
 	partitionIndex int,
-	settings *simulator.LoadSettingsConfig,
+	settings *simulator.Settings,
 ) {
 	seed := settings.Seeds[partitionIndex]
 	weights := make([]float64, 0)
