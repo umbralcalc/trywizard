@@ -16,8 +16,8 @@ Get the python environment sorted
 python3 -m venv venv
 source venv/bin/activate
 pip3 install -r requirements.txt
-export PYTHONPATH={$PYTHONPATH}:your/path/to/worldsoop
-export WORLDSOOP_PATH=your/path/to/worldsoop
+export WORLDSOOP_PATH=/your/path/to/worldsoop
+export PYTHONPATH=${PYTHONPATH}:${WORLDSOOP_PATH}
 ```
 
 ## How to run the visualisation app
