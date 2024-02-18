@@ -2,7 +2,7 @@
 <img src="../viz/src/assets/trywizard-logo-animated.gif" width="400"/>
 </p>
 
-Trywizard a simple event-based rugby match management simulator written with the WorldsOOp Go/Python API which accompanies a 2D pitch visualisation written with React and TypeScript. For more details on how the match engine was created, you can read [this chapter](https://umbralcalc.github.io/human-machine-harmonies/managing_a_rugby_match/chapter.pdf) in the open source book: [Human-Machine Harmonies](https://umbralcalc.github.io/human-machine-harmonies/).
+Trywizard a simple event-based rugby match management simulator written with the WorldsOOp Go/Python API which accompanies a 2D pitch visualisation written with React and TypeScript. For more details on how the match engine was created, you can read [this article](https://umbralcalc.github.io/posts/trywizard.html).
 
 <p align="center">
 <img src="../viz/src/assets/pitch-background.png" width="400"/>
