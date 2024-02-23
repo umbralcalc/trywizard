@@ -1,5 +1,11 @@
 from base_params import FLOAT_PARAMS, INT_PARAMS
 from pyapi.core.spawn_processes import spawn_worldsoop_processes_from_configs
+from pyapi.core.implementation_wrappers import (
+    OutputCondition,
+    OutputFunction,
+    TerminationCondition,
+    TimestepFunction,
+)
 from pyapi.core.config_builder import (
     OtherParams,
     SimulatorImplementationsConfig,
@@ -25,15 +31,13 @@ def main():
     )
     implementations = StochadexImplementationsConfig(
         simulator=SimulatorImplementationsConfig(
-            iterations=[r"rugbyMatch"],
-            output_condition=r"&simulator.EveryStepOutputCondition{}",
-            output_function=r"&simulator.StdoutOutputFunction{}",
-            termination_condition=(
-                r"&simulator.NumberOfStepsTerminationCondition{MaxNumberOfSteps: 100}"
-            ),
-            timestep_function=r"&simulator.ConstantTimestepFunction{Stepsize: 1.0}",
+            iterations=[["rugbyMatch"]],
+            output_condition=OutputCondition.every_step(),
+            output_function=OutputFunction.stdout(),
+            termination_condition=TerminationCondition.number_of_steps(100),
+            timestep_function=TimestepFunction.constant(1.0),
         ),
-        agents=[],
+        agent_by_partition={},
         extra_vars_by_package=[
             {
                 "github.com/worldsoop/trywizard/pkg/rugby_simulation": [
