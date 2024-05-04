@@ -14,6 +14,8 @@ Trywizard a simple event-based rugby match management simulator written with the
 # install the dependencies of and build the app
 cd ./viz && npm install && npm run build && cd ..
 
-# run the stochadex binary passing in the configs here and checkout http://localhost:3000
-/path/to/repo/stochadex/bin/stochadex ./bin/trywizard --config ./cfg/config.yaml --dashboard ./cfg/dashboard_config.yaml 
+# run the stochadex binary passing in the configs 
+# and checkout http://localhost:3000
+/path/to/repo/stochadex/bin/stochadex --config ./cfg/config.yaml \
+--dashboard ./cfg/dashboard_config.yaml 
 ```
