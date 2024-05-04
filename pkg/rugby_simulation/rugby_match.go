@@ -378,7 +378,7 @@ func (r *RugbyMatchIteration) getLongitudinalKickChange(
 
 func (r *RugbyMatchIteration) getLateralKickChange(
 	state []float64,
-	params *simulator.OtherParams,
+	_ *simulator.OtherParams,
 ) []float64 {
 	lastState := int(state[r.indices["Last Match State"]])
 	// if this is a kick at goal or a drop goal don't move
