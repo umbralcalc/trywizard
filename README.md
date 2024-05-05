@@ -2,7 +2,7 @@
 <img src="./viz/src/assets/trywizard-logo-animated.gif" width="400"/>
 </p>
 
-Trywizard a toy event-based rugby match simulator written with the [stochadex API](https://github.com/umbralcalc/stochadex) which accompanies a 2D pitch visualisation written with React. For more details on how the match engine was created, you can read [this article](https://umbralcalc.github.io/posts/trywizard.html).
+Trywizard is a toy event-based rugby match simulator written with the [stochadex API](https://github.com/umbralcalc/stochadex) which accompanies a 2D pitch visualisation written with React. For more details on how the match engine was created, you can read [this article](https://umbralcalc.github.io/posts/trywizard.html).
 
 <p align="center">
 <img src="./viz/src/assets/pitch-background.png" width="400"/>
