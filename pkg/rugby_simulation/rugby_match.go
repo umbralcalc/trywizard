@@ -45,13 +45,13 @@ var MatchStateValueIndices = map[string]int{
 // getPlayerFatigue is an internal method to retrieve a player's fatigue factor.
 func getPlayerFatigue(
 	playerIndex int,
-	params *simulator.OtherParams,
+	params simulator.Params,
 	timestepsHistory *simulator.CumulativeTimestepsHistory,
 ) float64 {
 	return math.Exp(
-		-params.FloatParams["player_fatigue_rates"][playerIndex] *
+		-params["player_fatigue_rates"][playerIndex] *
 			(timestepsHistory.Values.AtVec(0) -
-				params.FloatParams["player_start_times"][playerIndex]),
+				params["player_start_times"][playerIndex]),
 	)
 }
 
@@ -59,27 +59,27 @@ func getPlayerFatigue(
 // for the scrum possession transition probability.
 func getScrumPossessionFactor(
 	state []float64,
-	params *simulator.OtherParams,
+	params simulator.Params,
 	timestepsHistory *simulator.CumulativeTimestepsHistory,
 ) float64 {
 	playersFactor := 0.0
 	norm := 0.0
 	for i := 0; i < 3; i++ {
 		attackingFrontRowPos :=
-			params.FloatParams["front_row_scrum_possessions"][i+int(3*state[1])] *
+			params["front_row_scrum_possessions"][i+int(3*state[1])] *
 				getPlayerFatigue(i+int(15*state[1]), params, timestepsHistory)
 		defendingFrontRowPos :=
-			params.FloatParams["front_row_scrum_possessions"][i+int(3*(1-state[1]))] *
+			params["front_row_scrum_possessions"][i+int(3*(1-state[1]))] *
 				getPlayerFatigue(i+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingFrontRowPos
 		norm += attackingFrontRowPos + defendingFrontRowPos
 	}
 	for i := 0; i < 2; i++ {
 		attackingSecondRowPos :=
-			params.FloatParams["second_row_scrum_possessions"][i+int(2*state[1])] *
+			params["second_row_scrum_possessions"][i+int(2*state[1])] *
 				getPlayerFatigue(i+3+int(15*state[1]), params, timestepsHistory)
 		defendingSecondRowPos :=
-			params.FloatParams["second_row_scrum_possessions"][i+int(2*(1-state[1]))] *
+			params["second_row_scrum_possessions"][i+int(2*(1-state[1]))] *
 				getPlayerFatigue(i+3+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingSecondRowPos
 		norm += attackingSecondRowPos + defendingSecondRowPos
@@ -92,37 +92,37 @@ func getScrumPossessionFactor(
 // for the lineout possession transition probability.
 func getLineoutPossessionFactor(
 	state []float64,
-	params *simulator.OtherParams,
+	params simulator.Params,
 	timestepsHistory *simulator.CumulativeTimestepsHistory,
 ) float64 {
 	playersFactor := 0.0
 	norm := 0.0
 	for i := 0; i < 3; i++ {
 		attackingFrontRowPos :=
-			params.FloatParams["front_row_lineout_possessions"][i+int(3*state[1])] *
+			params["front_row_lineout_possessions"][i+int(3*state[1])] *
 				getPlayerFatigue(i+int(15*state[1]), params, timestepsHistory)
 		defendingFrontRowPos :=
-			params.FloatParams["front_row_lineout_possessions"][i+int(3*(1-state[1]))] *
+			params["front_row_lineout_possessions"][i+int(3*(1-state[1]))] *
 				getPlayerFatigue(i+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingFrontRowPos
 		norm += attackingFrontRowPos + defendingFrontRowPos
 	}
 	for i := 0; i < 2; i++ {
 		attackingSecondRowPos :=
-			params.FloatParams["second_row_lineout_possessions"][i+int(2*state[1])] *
+			params["second_row_lineout_possessions"][i+int(2*state[1])] *
 				getPlayerFatigue(i+3+int(15*state[1]), params, timestepsHistory)
 		defendingSecondRowPos :=
-			params.FloatParams["second_row_lineout_possessions"][i+int(2*(1-state[1]))] *
+			params["second_row_lineout_possessions"][i+int(2*(1-state[1]))] *
 				getPlayerFatigue(i+3+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingSecondRowPos
 		norm += attackingSecondRowPos + defendingSecondRowPos
 	}
 	for i := 0; i < 3; i++ {
 		attackingBackRowPos :=
-			params.FloatParams["back_row_lineout_possessions"][i+int(3*state[1])] *
+			params["back_row_lineout_possessions"][i+int(3*state[1])] *
 				getPlayerFatigue(i+5+int(15*state[1]), params, timestepsHistory)
 		defendingBackRowPos :=
-			params.FloatParams["back_row_lineout_possessions"][i+int(3*(1-state[1]))] *
+			params["back_row_lineout_possessions"][i+int(3*(1-state[1]))] *
 				getPlayerFatigue(i+5+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingBackRowPos
 		norm += attackingBackRowPos + defendingBackRowPos
@@ -135,37 +135,37 @@ func getLineoutPossessionFactor(
 // for the maul possession transition probability.
 func getMaulPossessionFactor(
 	state []float64,
-	params *simulator.OtherParams,
+	params simulator.Params,
 	timestepsHistory *simulator.CumulativeTimestepsHistory,
 ) float64 {
 	playersFactor := 0.0
 	norm := 0.0
 	for i := 0; i < 3; i++ {
 		attackingFrontRowPos :=
-			params.FloatParams["front_row_maul_possessions"][i+int(3*state[1])] *
+			params["front_row_maul_possessions"][i+int(3*state[1])] *
 				getPlayerFatigue(i+int(15*state[1]), params, timestepsHistory)
 		defendingFrontRowPos :=
-			params.FloatParams["front_row_maul_possessions"][i+int(3*(1-state[1]))] *
+			params["front_row_maul_possessions"][i+int(3*(1-state[1]))] *
 				getPlayerFatigue(i+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingFrontRowPos
 		norm += attackingFrontRowPos + defendingFrontRowPos
 	}
 	for i := 0; i < 2; i++ {
 		attackingSecondRowPos :=
-			params.FloatParams["second_row_maul_possessions"][i+int(2*state[1])] *
+			params["second_row_maul_possessions"][i+int(2*state[1])] *
 				getPlayerFatigue(i+3+int(15*state[1]), params, timestepsHistory)
 		defendingSecondRowPos :=
-			params.FloatParams["second_row_maul_possessions"][i+int(2*(1-state[1]))] *
+			params["second_row_maul_possessions"][i+int(2*(1-state[1]))] *
 				getPlayerFatigue(i+3+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingSecondRowPos
 		norm += attackingSecondRowPos + defendingSecondRowPos
 	}
 	for i := 0; i < 3; i++ {
 		attackingBackRowPos :=
-			params.FloatParams["back_row_maul_possessions"][i+int(3*state[1])] *
+			params["back_row_maul_possessions"][i+int(3*state[1])] *
 				getPlayerFatigue(i+5+int(15*state[1]), params, timestepsHistory)
 		defendingBackRowPos :=
-			params.FloatParams["back_row_maul_possessions"][i+int(3*(1-state[1]))] *
+			params["back_row_maul_possessions"][i+int(3*(1-state[1]))] *
 				getPlayerFatigue(i+5+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingBackRowPos
 		norm += attackingBackRowPos + defendingBackRowPos
@@ -178,47 +178,47 @@ func getMaulPossessionFactor(
 // for the ruck possession transition probability.
 func getRuckPossessionFactor(
 	state []float64,
-	params *simulator.OtherParams,
+	params simulator.Params,
 	timestepsHistory *simulator.CumulativeTimestepsHistory,
 ) float64 {
 	playersFactor := 0.0
 	norm := 0.0
 	for i := 0; i < 3; i++ {
 		attackingFrontRowPos :=
-			params.FloatParams["front_row_ruck_possessions"][i+int(3*state[1])] *
+			params["front_row_ruck_possessions"][i+int(3*state[1])] *
 				getPlayerFatigue(i+int(15*state[1]), params, timestepsHistory)
 		defendingFrontRowPos :=
-			params.FloatParams["front_row_ruck_possessions"][i+int(3*(1-state[1]))] *
+			params["front_row_ruck_possessions"][i+int(3*(1-state[1]))] *
 				getPlayerFatigue(i+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingFrontRowPos
 		norm += attackingFrontRowPos + defendingFrontRowPos
 	}
 	for i := 0; i < 2; i++ {
 		attackingSecondRowPos :=
-			params.FloatParams["second_row_ruck_possessions"][i+int(2*state[1])] *
+			params["second_row_ruck_possessions"][i+int(2*state[1])] *
 				getPlayerFatigue(i+3+int(15*state[1]), params, timestepsHistory)
 		defendingSecondRowPos :=
-			params.FloatParams["second_row_ruck_possessions"][i+int(2*(1-state[1]))] *
+			params["second_row_ruck_possessions"][i+int(2*(1-state[1]))] *
 				getPlayerFatigue(i+3+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingSecondRowPos
 		norm += attackingSecondRowPos + defendingSecondRowPos
 	}
 	for i := 0; i < 3; i++ {
 		attackingBackRowPos :=
-			params.FloatParams["back_row_ruck_possessions"][i+int(3*state[1])] *
+			params["back_row_ruck_possessions"][i+int(3*state[1])] *
 				getPlayerFatigue(i+5+int(15*state[1]), params, timestepsHistory)
 		defendingBackRowPos :=
-			params.FloatParams["back_row_ruck_possessions"][i+int(3*(1-state[1]))] *
+			params["back_row_ruck_possessions"][i+int(3*(1-state[1]))] *
 				getPlayerFatigue(i+5+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingBackRowPos
 		norm += attackingBackRowPos + defendingBackRowPos
 	}
 	for i := 0; i < 2; i++ {
 		attackingCentresPos :=
-			params.FloatParams["centres_ruck_possessions"][i+int(2*state[1])] *
+			params["centres_ruck_possessions"][i+int(2*state[1])] *
 				getPlayerFatigue(i+11+int(15*state[1]), params, timestepsHistory)
 		defendingCentresPos :=
-			params.FloatParams["centres_ruck_possessions"][i+int(2*(1-state[1]))] *
+			params["centres_ruck_possessions"][i+int(2*(1-state[1]))] *
 				getPlayerFatigue(i+11+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingCentresPos
 		norm += attackingCentresPos + defendingCentresPos
@@ -231,17 +231,17 @@ func getRuckPossessionFactor(
 // for the run possession transition probability.
 func getRunPossessionFactor(
 	state []float64,
-	params *simulator.OtherParams,
+	params simulator.Params,
 	timestepsHistory *simulator.CumulativeTimestepsHistory,
 ) float64 {
 	playersFactor := 0.0
 	norm := 0.0
 	for i := 0; i < 15; i++ {
 		attackingPos :=
-			params.FloatParams["player_run_possessions"][i+int(3*state[1])] *
+			params["player_run_possessions"][i+int(3*state[1])] *
 				getPlayerFatigue(i+int(15*state[1]), params, timestepsHistory)
 		defendingPos :=
-			params.FloatParams["player_run_possessions"][i+int(3*(1-state[1]))] *
+			params["player_run_possessions"][i+int(3*(1-state[1]))] *
 				getPlayerFatigue(i+int(15*(1-state[1])), params, timestepsHistory)
 		playersFactor += defendingPos
 		norm += attackingPos + defendingPos
@@ -264,10 +264,10 @@ type RugbyMatchIteration struct {
 
 func (r *RugbyMatchIteration) getPossessionChange(
 	state []float64,
-	params *simulator.OtherParams,
+	params simulator.Params,
 	timestepsHistory *simulator.CumulativeTimestepsHistory,
 ) []float64 {
-	rate := params.FloatParams["max_possession_change_rates"][int(state[0])]
+	rate := params["max_possession_change_rates"][int(state[0])]
 	playersFactor := 1.0
 	switch state[0] {
 	case 6:
@@ -290,16 +290,16 @@ func (r *RugbyMatchIteration) getPossessionChange(
 
 func (r *RugbyMatchIteration) getLongitudinalRunChange(
 	state []float64,
-	params *simulator.OtherParams,
+	params simulator.Params,
 ) []float64 {
 	newLonState := state[2]
 	attackerIndex := int(state[r.indices["Current Attacker"]]) + int(15*state[1])
 	defenderIndex := int(state[r.indices["Current Defender"]]) + int(15*(1-state[1]))
 	r.exponentialDist.Rate =
-		params.FloatParams["player_defensive_run_scales"][defenderIndex]
+		params["player_defensive_run_scales"][defenderIndex]
 	newLonState -= state[r.indices["Play Direction"]] * r.exponentialDist.Rand()
 	r.exponentialDist.Rate =
-		params.FloatParams["player_attacking_run_scales"][attackerIndex]
+		params["player_attacking_run_scales"][attackerIndex]
 	newLonState += state[r.indices["Play Direction"]] * r.exponentialDist.Rand()
 	// if the newLonState would end up moving over a tryline, just restrict
 	// this movement so that it remains just within the field of play
@@ -315,10 +315,10 @@ func (r *RugbyMatchIteration) getLongitudinalRunChange(
 
 func (r *RugbyMatchIteration) getLateralRunChange(
 	state []float64,
-	params *simulator.OtherParams,
+	params simulator.Params,
 ) []float64 {
 	r.normalDist.Mu = 0.0
-	r.normalDist.Sigma = params.FloatParams["lateral_run_scale"][0]
+	r.normalDist.Sigma = params["lateral_run_scale"][0]
 	newLatState := state[3] + r.normalDist.Rand()
 	// if the newLatState would end up moving out of bounds, just restrict
 	// this movement so that it remains just within the field of play
@@ -334,7 +334,7 @@ func (r *RugbyMatchIteration) getLateralRunChange(
 
 func (r *RugbyMatchIteration) getLongitudinalKickChange(
 	state []float64,
-	params *simulator.OtherParams,
+	params simulator.Params,
 ) []float64 {
 	lastState := int(state[r.indices["Last Match State"]])
 	// if this is a kick at goal or a drop goal don't move
@@ -352,7 +352,7 @@ func (r *RugbyMatchIteration) getLongitudinalKickChange(
 		if (currentAttacker == 9) || (currentAttacker == 10) {
 			kickerIndex = (currentAttacker - 9) + 2*int(state[1])
 			r.exponentialDist.Rate =
-				params.FloatParams["halves_kick_scales"][kickerIndex]
+				params["halves_kick_scales"][kickerIndex]
 		} else {
 			if currentAttacker == 11 {
 				kickerIndex = 3 * int(state[1])
@@ -360,7 +360,7 @@ func (r *RugbyMatchIteration) getLongitudinalKickChange(
 				kickerIndex = (currentAttacker - 13) + 3*int(state[1])
 			}
 			r.exponentialDist.Rate =
-				params.FloatParams["back_three_kick_scales"][kickerIndex]
+				params["back_three_kick_scales"][kickerIndex]
 		}
 		newLonState += state[r.indices["Play Direction"]] * r.exponentialDist.Rand()
 		if newLonState >= r.maxLon {
@@ -378,7 +378,7 @@ func (r *RugbyMatchIteration) getLongitudinalKickChange(
 
 func (r *RugbyMatchIteration) getLateralKickChange(
 	state []float64,
-	_ *simulator.OtherParams,
+	_ simulator.Params,
 ) []float64 {
 	lastState := int(state[r.indices["Last Match State"]])
 	// if this is a kick at goal or a drop goal don't move
@@ -404,10 +404,10 @@ func (r *RugbyMatchIteration) getLateralKickChange(
 
 func (r *RugbyMatchIteration) getKickAtGoalSuccess(
 	state []float64,
-	params *simulator.OtherParams,
+	params simulator.Params,
 ) bool {
 	success := r.unitUniformDist.Rand() <
-		params.FloatParams["goal_probabilities"][int(state[1])]
+		params["goal_probabilities"][int(state[1])]
 	midPitch := 0.5 * r.maxLat
 	if success {
 		// move ball back to halfway line for kickoff
@@ -425,7 +425,7 @@ func (r *RugbyMatchIteration) getKickAtGoalSuccess(
 
 func (r *RugbyMatchIteration) updateScoreAndBallLocation(
 	state []float64,
-	params *simulator.OtherParams,
+	params simulator.Params,
 ) []float64 {
 	// update either home team or away team scores with this index
 	scorerIndex := int(5*state[1] + 4*(1-state[1]))
@@ -495,7 +495,7 @@ func (r *RugbyMatchIteration) Configure(
 }
 
 func (r *RugbyMatchIteration) Iterate(
-	params *simulator.OtherParams,
+	params simulator.Params,
 	partitionIndex int,
 	stateHistories []*simulator.StateHistory,
 	timestepsHistory *simulator.CumulativeTimestepsHistory,
@@ -504,13 +504,13 @@ func (r *RugbyMatchIteration) Iterate(
 	state = append(state, stateHistories[partitionIndex].Values.RawRowView(0)...)
 	state[r.indices["Play Direction"]] = 1.0*state[1] - 1.0*(1-state[1])
 	matchState := fmt.Sprintf("%d", int(state[0]))
-	transitions := params.IntParams["transitions_from_"+matchState]
+	transitions := params["transitions_from_"+matchState]
 	// if we are currently not planned to do anything, find the next transition
 	if state[0] == float64(state[r.indices["Next Match State"]]) {
 		// compute the cumulative rates and overall normalisation for transitions
 		cumulative := 0.0
 		cumulativeProbs := make([]float64, 0)
-		transitionProbs := params.FloatParams["transition_probs_from_"+matchState]
+		transitionProbs := params["transition_probs_from_"+matchState]
 		for _, prob := range transitionProbs {
 			cumulative += prob
 			cumulativeProbs = append(cumulativeProbs, cumulative)
@@ -520,7 +520,7 @@ func (r *RugbyMatchIteration) Iterate(
 		for i, prob := range cumulativeProbs {
 			if transitionEvent*normalisation < prob {
 				if (i == 0) || (transitionEvent*normalisation >= cumulativeProbs[i-1]) {
-					state[r.indices["Next Match State"]] = float64(transitions[i])
+					state[r.indices["Next Match State"]] = transitions[i]
 					break
 				}
 			}
@@ -528,7 +528,7 @@ func (r *RugbyMatchIteration) Iterate(
 	}
 	// figure out if the next event should happen yet
 	probDoNothing := 1.0 / (1.0 + timestepsHistory.NextIncrement*
-		params.FloatParams["background_event_rates"][int64(state[r.indices["Next Match State"]])])
+		params["background_event_rates"][int64(state[r.indices["Next Match State"]])])
 	event := r.unitUniformDist.Rand()
 	if event < probDoNothing {
 		// if the state hasn't changed then continue without doing anything else
