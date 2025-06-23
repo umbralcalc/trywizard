@@ -1,4 +1,4 @@
-package rugby_simulation
+package simulation
 
 // import (
 // 	"fmt"
