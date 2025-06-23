@@ -1,14 +1,15 @@
 package espn
 
-import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-)
-
 type Summary struct {
-	Header Header `json:"header"`
+	Header  Header   `json:"header"`
+	Rosters []Roster `json:"rosters"`
+}
+
+type Roster struct {
+	HomeAway string   `json:"homeAway"`
+	Winner   bool     `json:"winner"`
+	Team     Team     `json:"team"`
+	Roster   []Player `json:"roster"`
 }
 
 type Header struct {
@@ -139,25 +140,31 @@ type Participant struct {
 	Athlete Athlete `json:"athlete"`
 }
 
-type Athlete struct {
-	ID          string `json:"id"`
-	DisplayName string `json:"displayName"`
+type Player struct {
+	Active    bool     `json:"active"`
+	Starter   bool     `json:"starter"`
+	Jersey    string   `json:"jersey"`
+	Athlete   Athlete  `json:"athlete"`
+	Position  Position `json:"position"`
+	Captain   bool     `json:"captain"`
+	SubbedIn  bool     `json:"subbedIn"`
+	SubbedOut bool     `json:"subbedOut"`
 }
 
-func FetchEvents(gameID string) ([]Event, error) {
-	url := fmt.Sprintf("https://site.api.espn.com/apis/site/v2/sports/rugby/267979/summary?event=%s", gameID)
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	var sum Summary
-	if err := json.Unmarshal(body, &sum); err != nil {
-		return nil, err
-	}
-	return sum.Header.Competitions[0].Details, nil
+type Athlete struct {
+	ID          string   `json:"id"`
+	UID         string   `json:"uid"`
+	GUID        string   `json:"guid"`
+	LastName    string   `json:"lastName"`
+	FullName    string   `json:"fullName"`
+	DisplayName string   `json:"displayName"`
+	Position    Position `json:"position"`
+	Links       []Link   `json:"links"`
+}
+
+type Position struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	DisplayName  string `json:"displayName"`
+	Abbreviation string `json:"abbreviation"`
 }
