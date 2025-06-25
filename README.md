@@ -4,7 +4,7 @@ An event-based rugby match simulator written with the [stochadex framework](http
 
 ## Data sources for the project
 
-This is an entirely non-commercial project intended for research and learning purposes (see the [MIT License](LICENSE)). The data used has been aggregated into a common set of non-publicly shared tables from the following sources.
+This is an entirely non-commercial project intended for research and learning purposes (see the [MIT License](LICENSE)). The data used has been aggregated into a common set of non-publicly shared CSVs from the following sources.
 
 - API: [https://www.sportdevs.com/](https://www.sportdevs.com/)
 - Site: [https://www.rugbypass.com/](https://www.rugbypass.com/)
