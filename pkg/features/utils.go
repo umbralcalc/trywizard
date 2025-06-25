@@ -13,7 +13,7 @@ func GetRawEventsDataFrame() dataframe.DataFrame {
 	file, _ := os.Open("../dat/events.csv")
 	df := dataframe.ReadCSV(file)
 
-	// Convert all times to ints
+	// Convert all times to minute ints
 	timeStrs := df.Col("time").Records()
 	timeInts := make([]int, len(timeStrs))
 	for i, t := range timeStrs {
@@ -28,7 +28,7 @@ func GetRawEventsDataFrame() dataframe.DataFrame {
 }
 
 func GetUniqueMinutes(df *dataframe.DataFrame) []int {
-	// Get unique time_ints from original df
+	// Get unique minutes from original df
 	timeIntsSet := make(map[int]struct{})
 	for _, t := range df.Col("minute").Records() {
 		val, _ := strconv.Atoi(t)
