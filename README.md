@@ -11,4 +11,3 @@ This is an entirely non-commercial project intended for research and learning pu
 - Site: [https://www.rugbydatabase.co.nz/](https://www.rugbydatabase.co.nz/)
 - Site: [https://www.espn.co.uk/rugby/](https://www.espn.co.uk/rugby/)
 - Site: [https://all.rugby/](https://all.rugby/)
-
