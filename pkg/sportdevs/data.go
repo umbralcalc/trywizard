@@ -1,5 +1,25 @@
 package sportdevs
 
+type MatchByDateResponse struct {
+	Date    string         `json:"date"`
+	Matches []MatchDetails `json:"matches"`
+}
+
+type MatchDetails struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	LeagueID     int    `json:"league_id"`
+	SeasonID     int    `json:"season_id"`
+	StatusType   string `json:"status_type"`
+	HomeTeamID   int    `json:"home_team_id"`
+	AwayTeamID   int    `json:"away_team_id"`
+	HomeTeamName string `json:"home_team_name"`
+	AwayTeamName string `json:"away_team_name"`
+	AwayScore    int    `json:"away_team_score"`
+	HomeScore    int    `json:"home_team_score"`
+	StartTime    string `json:"start_time"`
+}
+
 type MatchesIncidentsResponse struct {
 	MatchID   int        `json:"match_id"`
 	Incidents []Incident `json:"incidents"`

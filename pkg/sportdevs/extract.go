@@ -23,6 +23,29 @@ func FetchMatchList() ([]Match, error) {
 	return arr, nil
 }
 
+func FetchMatchesByDate(date string) ([]MatchDetails, error) {
+	client, err := NewClient()
+	if err != nil {
+		return nil, err
+	}
+	url := fmt.Sprintf("https://rugby.sportdevs.com/matches-by-date?date=eq.%s", date)
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var arr []MatchByDateResponse
+	if err := json.NewDecoder(resp.Body).Decode(&arr); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+
+	if len(arr) == 0 {
+		return nil, nil // no matches found
+	}
+	return arr[0].Matches, nil
+}
+
 func FetchMatchIncidents(matchID int) (*MatchesIncidentsResponse, error) {
 	client, err := NewClient()
 	if err != nil {
