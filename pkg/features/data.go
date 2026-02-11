@@ -9,8 +9,12 @@ import (
 	"github.com/go-gota/gota/series"
 )
 
-func GetRawEventsDataFrame() dataframe.DataFrame {
-	file, _ := os.Open("../dat/events.csv")
+func GetRawEventsDataFrame(path string) dataframe.DataFrame {
+	file, err := os.Open(path)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
 	df := dataframe.ReadCSV(file)
 
 	// Convert all times to minute ints
