@@ -1,0 +1,86 @@
+main:
+  partitions:
+
+  # Log-linear rate model for scoring events (tries + conversions)
+  - name: score_rates
+    iteration: scoreRateFunc
+    params:
+      coefficients: [-2.45, -3.0, -3.3, -3.3]
+    init_state_values: [0.0, 0.0, 0.0, 0.0]
+    state_history_depth: 1
+    seed: 0
+    extra_packages:
+    - github.com/umbralcalc/trywizard/pkg/match
+    - github.com/umbralcalc/stochadex/pkg/general
+    extra_vars:
+    - scoreRateFunc: "&general.ValuesFunctionIteration{Function: match.ScoreEventRateFunction}"
+
+  # Log-linear rate model for card events (yellow cards)
+  - name: card_rates
+    iteration: cardRateFunc
+    params:
+      coefficients: [-4.4, -14.0]
+    init_state_values: [0.0, 0.0]
+    state_history_depth: 1
+    seed: 0
+    extra_packages:
+    - github.com/umbralcalc/trywizard/pkg/match
+    - github.com/umbralcalc/stochadex/pkg/general
+    extra_vars:
+    - cardRateFunc: "&general.ValuesFunctionIteration{Function: match.CardEventRateFunction}"
+
+  # Cox process for scoring events: [home_tries, away_tries, home_conv, away_conv]
+  - name: score_events
+    iteration: scoreProcess
+    params: {}
+    params_from_upstream:
+      rates:
+        upstream: score_rates
+    init_state_values: [0.0, 0.0, 0.0, 0.0]
+    state_history_depth: 2
+    seed: 7832
+    extra_packages:
+    - github.com/umbralcalc/stochadex/pkg/discrete
+    extra_vars:
+    - scoreProcess: "&discrete.CoxProcessIteration{}"
+
+  # Cox process for card events: [home_yellow, away_yellow]
+  - name: card_events
+    iteration: cardProcess
+    params: {}
+    params_from_upstream:
+      rates:
+        upstream: card_rates
+    init_state_values: [0.0, 0.0]
+    state_history_depth: 11
+    seed: 7833
+    extra_packages:
+    - github.com/umbralcalc/stochadex/pkg/discrete
+    extra_vars:
+    - cardProcess: "&discrete.CoxProcessIteration{}"
+
+  # Derived match state: scores, score difference, active cards, half
+  - name: match_state
+    iteration: stateFunc
+    params:
+      card_partition: [3]
+    params_from_upstream:
+      score_values:
+        upstream: score_events
+      card_values:
+        upstream: card_events
+    init_state_values: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    state_history_depth: 1
+    seed: 0
+    extra_packages:
+    - github.com/umbralcalc/trywizard/pkg/match
+    - github.com/umbralcalc/stochadex/pkg/general
+    extra_vars:
+    - stateFunc: "&general.ValuesFunctionIteration{Function: match.MatchStateFunction}"
+
+  simulation:
+    output_condition: "&simulator.EveryStepOutputCondition{}"
+    output_function: "&simulator.StdoutOutputFunction{}"
+    termination_condition: "&simulator.NumberOfStepsTerminationCondition{MaxNumberOfSteps: 80}"
+    timestep_function: "&simulator.ConstantTimestepFunction{Stepsize: 1.0}"
+    init_time_value: 0.0

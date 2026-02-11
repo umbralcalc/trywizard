@@ -1,0 +1,47 @@
+iterations:
+- name: score_rates
+  params:
+    coefficients: [-3.0, -3.0, -3.5, -3.5]
+  init_state_values: [0.0, 0.0, 0.0, 0.0]
+  seed: 0
+  state_width: 4
+  state_history_depth: 1
+- name: card_rates
+  params:
+    coefficients: [-4.5, -4.5]
+  init_state_values: [0.0, 0.0]
+  seed: 0
+  state_width: 2
+  state_history_depth: 1
+- name: score_events
+  params: {}
+  params_from_upstream:
+    rates:
+      upstream: 0
+  init_state_values: [0.0, 0.0, 0.0, 0.0]
+  seed: 7832
+  state_width: 4
+  state_history_depth: 2
+- name: card_events
+  params: {}
+  params_from_upstream:
+    rates:
+      upstream: 1
+  init_state_values: [0.0, 0.0]
+  seed: 7833
+  state_width: 2
+  state_history_depth: 11
+- name: match_state
+  params:
+    card_partition: [3]
+  params_from_upstream:
+    score_values:
+      upstream: 2
+    card_values:
+      upstream: 3
+  init_state_values: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  seed: 0
+  state_width: 6
+  state_history_depth: 1
+init_time_value: 0.0
+timesteps_history_depth: 2
