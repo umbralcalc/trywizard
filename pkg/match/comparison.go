@@ -1,0 +1,99 @@
+package match
+
+import (
+	"github.com/umbralcalc/stochadex/pkg/simulator"
+)
+
+// ScorePoint holds a home and away score at a point in time.
+type ScorePoint struct{ Home, Away float64 }
+
+// SimulationResult holds the output of a single forward simulation.
+type SimulationResult struct {
+	// ScoreTrajectory is the home/away score at each simulated minute.
+	ScoreTrajectory []ScorePoint
+	// EventTotals is the final cumulative event count per type (length EventWidth).
+	EventTotals []float64
+}
+
+// RunMatchSimulations runs nSims forward simulations with MLE-fitted
+// coefficients and returns the results. Each simulation uses seed
+// baseSeed+i for i in [0, nSims).
+func RunMatchSimulations(
+	scoreCoeffs, cardCoeffs []float64,
+	nSims, nSteps int,
+	baseSeed uint64,
+) []SimulationResult {
+	results := make([]SimulationResult, nSims)
+	for i := 0; i < nSims; i++ {
+		store := simulator.NewStateTimeStorage()
+		generator := NewMatchSimulationConfigGenerator(
+			scoreCoeffs, cardCoeffs, baseSeed+uint64(i), nSteps, 1.0,
+		)
+		generator.SetSimulation(&simulator.SimulationConfig{
+			OutputCondition: &simulator.EveryStepOutputCondition{},
+			OutputFunction:  &simulator.StateTimeStorageOutputFunction{Store: store},
+			TerminationCondition: &simulator.NumberOfStepsTerminationCondition{
+				MaxNumberOfSteps: nSteps,
+			},
+			TimestepFunction: &simulator.ConstantTimestepFunction{Stepsize: 1.0},
+			InitTimeValue:    0.0,
+		})
+		settings, implementations := generator.GenerateConfigs()
+		coordinator := simulator.NewPartitionCoordinator(settings, implementations)
+		coordinator.Run()
+
+		// Extract score trajectory from match_state.
+		states := store.GetValues("match_state")
+		trajectory := make([]ScorePoint, len(states))
+		for j, s := range states {
+			trajectory[j] = ScorePoint{
+				Home: s[StateIdxHomeScore],
+				Away: s[StateIdxAwayScore],
+			}
+		}
+
+		// Extract event totals from cumulative score_events and card_events.
+		totals := make([]float64, EventWidth)
+		scoreEvents := store.GetValues("score_events")
+		cardEvents := store.GetValues("card_events")
+		if len(scoreEvents) > 0 {
+			copy(totals[:ScoreRateWidth], scoreEvents[len(scoreEvents)-1])
+		}
+		if len(cardEvents) > 0 {
+			copy(totals[ScoreRateWidth:], cardEvents[len(cardEvents)-1])
+		}
+
+		results[i] = SimulationResult{
+			ScoreTrajectory: trajectory,
+			EventTotals:     totals,
+		}
+	}
+	return results
+}
+
+// ComputeScoreTrajectory builds a cumulative home/away score trajectory
+// from the per-minute event counts in storage.
+func ComputeScoreTrajectory(storage *simulator.StateTimeStorage) []ScorePoint {
+	events := storage.GetValues("events")
+	trajectory := make([]ScorePoint, len(events))
+	var cumHome, cumAway float64
+	for i, ev := range events {
+		cumHome += ev[IdxHomeTry]*5.0 + ev[IdxHomeConv]*2.0
+		cumAway += ev[IdxAwayTry]*5.0 + ev[IdxAwayConv]*2.0
+		trajectory[i] = ScorePoint{Home: cumHome, Away: cumAway}
+	}
+	return trajectory
+}
+
+// ComputeEventTotals sums per-minute event counts into total counts
+// per event type.
+func ComputeEventTotals(storage *simulator.StateTimeStorage) []float64 {
+	events := storage.GetValues("events")
+	totals := make([]float64, EventWidth)
+	for _, ev := range events {
+		for j := 0; j < EventWidth; j++ {
+			totals[j] += ev[j]
+		}
+	}
+	return totals
+}
