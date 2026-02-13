@@ -1,11 +1,11 @@
 main:
   partitions:
 
-  # Log-linear rate model for scoring events (tries + conversions)
+  # Log-linear rate model for scoring events (tries + penalties)
   - name: score_rates
     iteration: scoreRateFunc
     params:
-      coefficients: [-2.45, -3.0, -3.3, -3.3]
+      coefficients: [-2.45, -3.0, -3.5, -3.5]
     init_state_values: [0.0, 0.0, 0.0, 0.0]
     state_history_depth: 1
     seed: 0
@@ -29,7 +29,7 @@ main:
     extra_vars:
     - cardRateFunc: "&general.ValuesFunctionIteration{Function: match.CardEventRateFunction}"
 
-  # Cox process for scoring events: [home_tries, away_tries, home_conv, away_conv]
+  # Cox process for scoring events: [home_tries, away_tries, home_penalties, away_penalties]
   - name: score_events
     iteration: scoreProcess
     params: {}
@@ -59,6 +59,22 @@ main:
     extra_vars:
     - cardProcess: "&discrete.CoxProcessIteration{}"
 
+  # Conversion events: Bernoulli trials per new try
+  - name: conversion_events
+    iteration: conversionIter
+    params:
+      conversion_probs: [0.7, 0.7]
+    params_from_upstream:
+      try_values:
+        upstream: score_events
+    init_state_values: [0.0, 0.0]
+    state_history_depth: 1
+    seed: 7834
+    extra_packages:
+    - github.com/umbralcalc/trywizard/pkg/match
+    extra_vars:
+    - conversionIter: "&match.ConversionIteration{}"
+
   # Derived match state: scores, score difference, active cards, half
   - name: match_state
     iteration: stateFunc
@@ -67,6 +83,8 @@ main:
     params_from_upstream:
       score_values:
         upstream: score_events
+      conversion_values:
+        upstream: conversion_events
       card_values:
         upstream: card_events
     init_state_values: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

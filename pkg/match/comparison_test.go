@@ -13,11 +13,12 @@ func TestRunMatchSimulations(t *testing.T) {
 		func(t *testing.T) {
 			scoreCoeffs := []float64{-3.0, -3.0, -3.5, -3.5}
 			cardCoeffs := []float64{-4.5, -4.5}
+			convProbs := []float64{0.5, 0.5}
 			nSims := 10
 			nSteps := 80
 
 			results := RunMatchSimulations(
-				scoreCoeffs, cardCoeffs, nSims, nSteps, 1000,
+				scoreCoeffs, cardCoeffs, convProbs, nSims, nSteps, 1000,
 			)
 
 			if len(results) != nSims {
@@ -44,6 +45,15 @@ func TestRunMatchSimulations(t *testing.T) {
 						t.Errorf("sim %d: event total[%d] invalid: %f", i, j, v)
 					}
 				}
+				// Conversions should not exceed tries.
+				if r.EventTotals[IdxHomeConv] > r.EventTotals[IdxHomeTry] {
+					t.Errorf("sim %d: home conv (%f) > home tries (%f)",
+						i, r.EventTotals[IdxHomeConv], r.EventTotals[IdxHomeTry])
+				}
+				if r.EventTotals[IdxAwayConv] > r.EventTotals[IdxAwayTry] {
+					t.Errorf("sim %d: away conv (%f) > away tries (%f)",
+						i, r.EventTotals[IdxAwayConv], r.EventTotals[IdxAwayTry])
+				}
 			}
 		},
 	)
@@ -66,6 +76,7 @@ func TestComputeScoreTrajectory(t *testing.T) {
 			}
 
 			// Final score should be Home 41, Away 26.
+			// (game 600009 has no penalties, so score is still tries*5 + conv*2)
 			final := trajectory[len(trajectory)-1]
 			if !scalar.EqualWithinAbs(final.Home, 41.0, 0.01) {
 				t.Errorf("expected final home score 41, got %f", final.Home)
@@ -108,6 +119,11 @@ func TestComputeEventTotals(t *testing.T) {
 			// Home tries = 7 for this match.
 			if !scalar.EqualWithinAbs(totals[IdxHomeTry], 7.0, 0.01) {
 				t.Errorf("expected 7 home tries, got %f", totals[IdxHomeTry])
+			}
+
+			// No penalties in game 600009.
+			if totals[IdxHomePenalty] != 0 {
+				t.Errorf("expected 0 home penalties, got %f", totals[IdxHomePenalty])
 			}
 
 			// All totals should be non-negative.

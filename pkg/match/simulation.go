@@ -9,15 +9,18 @@ import (
 // match simulation. The partitions are:
 //   - score_rates: log-linear rate model for scoring events (width 4)
 //   - card_rates: log-linear rate model for card events (width 2)
-//   - score_events: Cox process for tries and conversions (width 4)
+//   - score_events: Cox process for tries and penalties (width 4)
 //   - card_events: Cox process for yellow cards (width 2)
+//   - conversion_events: Bernoulli trials per new try (width 2)
 //   - match_state: derived match state (scores, active cards, half)
 //
-// scoreCoefficients has length ScoreRateWidth (4).
+// scoreCoefficients has length ScoreRateWidth (4): [try_h, try_a, penalty_h, penalty_a].
 // cardCoefficients has length CardRateWidth (2).
+// conversionProbabilities has length 2: [home_prob, away_prob].
 func NewMatchSimulationPartitions(
 	scoreCoefficients []float64,
 	cardCoefficients []float64,
+	conversionProbabilities []float64,
 	seed uint64,
 ) []*simulator.PartitionConfig {
 	scoreRates := NewScoreRatesPartition(scoreCoefficients)
@@ -47,6 +50,20 @@ func NewMatchSimulationPartitions(
 		Seed:              seed + 1,
 	}
 
+	conversionEvents := &simulator.PartitionConfig{
+		Name:      "conversion_events",
+		Iteration: &ConversionIteration{},
+		Params: simulator.NewParams(map[string][]float64{
+			"conversion_probs": conversionProbabilities,
+		}),
+		ParamsFromUpstream: map[string]simulator.NamedUpstreamConfig{
+			"try_values": {Upstream: "score_events"},
+		},
+		InitStateValues:   make([]float64, 2),
+		StateHistoryDepth: 1,
+		Seed:              seed + 2,
+	}
+
 	matchState := NewMatchStatePartition()
 
 	return []*simulator.PartitionConfig{
@@ -54,6 +71,7 @@ func NewMatchSimulationPartitions(
 		cardRates,
 		scoreEvents,
 		cardEvents,
+		conversionEvents,
 		matchState,
 	}
 }
@@ -63,6 +81,7 @@ func NewMatchSimulationPartitions(
 func NewMatchSimulationConfigGenerator(
 	scoreCoefficients []float64,
 	cardCoefficients []float64,
+	conversionProbabilities []float64,
 	seed uint64,
 	numSteps int,
 	stepSize float64,
@@ -78,7 +97,7 @@ func NewMatchSimulationConfigGenerator(
 		InitTimeValue:    0.0,
 	})
 	for _, partition := range NewMatchSimulationPartitions(
-		scoreCoefficients, cardCoefficients, seed,
+		scoreCoefficients, cardCoefficients, conversionProbabilities, seed,
 	) {
 		generator.SetPartition(partition)
 	}

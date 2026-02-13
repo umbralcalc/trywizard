@@ -19,6 +19,9 @@ func TestComputeMLERates(t *testing.T) {
 			}
 
 			rates := ComputeMLERates(storage)
+			if len(rates) != RateEventWidth {
+				t.Fatalf("expected %d rates, got %d", RateEventWidth, len(rates))
+			}
 			t.Logf("MLE rates: %v", rates)
 
 			// All rates should be positive.
@@ -28,9 +31,9 @@ func TestComputeMLERates(t *testing.T) {
 				}
 			}
 
-			// Home tries: ~7 in 81 minutes ≈ 0.086
-			if !scalar.EqualWithinAbs(rates[IdxHomeTry], 0.086, 0.01) {
-				t.Errorf("home try rate: got %f, expected ~0.086", rates[IdxHomeTry])
+			// Home tries: ~7 in 81 minutes ≈ 0.086 (index 0)
+			if !scalar.EqualWithinAbs(rates[0], 0.086, 0.01) {
+				t.Errorf("home try rate: got %f, expected ~0.086", rates[0])
 			}
 
 			// Coefficients should be finite log values.
@@ -60,10 +63,12 @@ func TestMatchRateTraining(t *testing.T) {
 				t.Fatalf("failed to load data: %v", err)
 			}
 
+			// Filter to rate-only events for training.
+			rateStorage := RateEventsStorage(storage)
+
 			// Initialize near the MLE to test convergence stability.
-			// Use a floor to avoid zero rates causing divergence.
 			mleRates := ComputeMLERates(storage)
-			initRates := make([]float64, EventWidth)
+			initRates := make([]float64, RateEventWidth)
 			for i := range initRates {
 				initRates[i] = math.Max(mleRates[i]*1.5, 0.01)
 			}
@@ -72,7 +77,7 @@ func TestMatchRateTraining(t *testing.T) {
 			windowDepth := 10
 			descentIterations := 5
 			outputStorage := RunMatchRateTraining(
-				storage, initRates, 0.001, descentIterations, windowDepth,
+				rateStorage, initRates, 0.001, descentIterations, windowDepth,
 			)
 
 			fittedRates := ExtractFittedRates(outputStorage)

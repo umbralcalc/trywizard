@@ -19,7 +19,7 @@ type SimulationResult struct {
 // coefficients and returns the results. Each simulation uses seed
 // baseSeed+i for i in [0, nSims).
 func RunMatchSimulations(
-	scoreCoeffs, cardCoeffs []float64,
+	scoreCoeffs, cardCoeffs, convProbs []float64,
 	nSims, nSteps int,
 	baseSeed uint64,
 ) []SimulationResult {
@@ -27,7 +27,7 @@ func RunMatchSimulations(
 	for i := 0; i < nSims; i++ {
 		store := simulator.NewStateTimeStorage()
 		generator := NewMatchSimulationConfigGenerator(
-			scoreCoeffs, cardCoeffs, baseSeed+uint64(i), nSteps, 1.0,
+			scoreCoeffs, cardCoeffs, convProbs, baseSeed+uint64(i), nSteps, 1.0,
 		)
 		generator.SetSimulation(&simulator.SimulationConfig{
 			OutputCondition: &simulator.EveryStepOutputCondition{},
@@ -52,15 +52,27 @@ func RunMatchSimulations(
 			}
 		}
 
-		// Extract event totals from cumulative score_events and card_events.
+		// Extract event totals from score_events, conversion_events, and card_events.
 		totals := make([]float64, EventWidth)
 		scoreEvents := store.GetValues("score_events")
+		convEvents := store.GetValues("conversion_events")
 		cardEvents := store.GetValues("card_events")
 		if len(scoreEvents) > 0 {
-			copy(totals[:ScoreRateWidth], scoreEvents[len(scoreEvents)-1])
+			last := scoreEvents[len(scoreEvents)-1]
+			totals[IdxHomeTry] = last[0]
+			totals[IdxAwayTry] = last[1]
+			totals[IdxHomePenalty] = last[2]
+			totals[IdxAwayPenalty] = last[3]
+		}
+		if len(convEvents) > 0 {
+			last := convEvents[len(convEvents)-1]
+			totals[IdxHomeConv] = last[0]
+			totals[IdxAwayConv] = last[1]
 		}
 		if len(cardEvents) > 0 {
-			copy(totals[ScoreRateWidth:], cardEvents[len(cardEvents)-1])
+			last := cardEvents[len(cardEvents)-1]
+			totals[IdxHomeYellow] = last[0]
+			totals[IdxAwayYellow] = last[1]
 		}
 
 		results[i] = SimulationResult{
@@ -78,8 +90,8 @@ func ComputeScoreTrajectory(storage *simulator.StateTimeStorage) []ScorePoint {
 	trajectory := make([]ScorePoint, len(events))
 	var cumHome, cumAway float64
 	for i, ev := range events {
-		cumHome += ev[IdxHomeTry]*5.0 + ev[IdxHomeConv]*2.0
-		cumAway += ev[IdxAwayTry]*5.0 + ev[IdxAwayConv]*2.0
+		cumHome += ev[IdxHomeTry]*5.0 + ev[IdxHomeConv]*2.0 + ev[IdxHomePenalty]*3.0
+		cumAway += ev[IdxAwayTry]*5.0 + ev[IdxAwayConv]*2.0 + ev[IdxAwayPenalty]*3.0
 		trajectory[i] = ScorePoint{Home: cumHome, Away: cumAway}
 	}
 	return trajectory

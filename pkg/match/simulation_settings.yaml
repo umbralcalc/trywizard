@@ -31,12 +31,24 @@ iterations:
   seed: 7833
   state_width: 2
   state_history_depth: 11
+- name: conversion_events
+  params:
+    conversion_probs: [0.5, 0.5]
+  params_from_upstream:
+    try_values:
+      upstream: 2
+  init_state_values: [0.0, 0.0]
+  seed: 7834
+  state_width: 2
+  state_history_depth: 1
 - name: match_state
   params:
     card_partition: [3]
   params_from_upstream:
     score_values:
       upstream: 2
+    conversion_values:
+      upstream: 4
     card_values:
       upstream: 3
   init_state_values: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

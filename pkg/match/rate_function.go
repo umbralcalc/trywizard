@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	ScoreRateWidth = 4 // home_try, away_try, home_conv, away_conv
+	ScoreRateWidth = 4 // home_try, away_try, home_penalty, away_penalty
 	CardRateWidth  = 2 // home_yellow, away_yellow
 )
 

@@ -59,24 +59,34 @@ func TestTransformEventsToStateTimeStorage(t *testing.T) {
 		}
 	})
 
+	// Game 600009 has no penalty goals, so penalty columns should be zero.
+	t.Run("no penalties in game 600009", func(t *testing.T) {
+		totalHomePenalties := 0.0
+		totalAwayPenalties := 0.0
+		for _, row := range events {
+			totalHomePenalties += row[IdxHomePenalty]
+			totalAwayPenalties += row[IdxAwayPenalty]
+		}
+		if totalHomePenalties != 0 {
+			t.Errorf("expected 0 home penalties, got %f", totalHomePenalties)
+		}
+		if totalAwayPenalties != 0 {
+			t.Errorf("expected 0 away penalties, got %f", totalAwayPenalties)
+		}
+	})
+
 	// Verify total counts across all minutes match match summary.
 	t.Run("total event counts", func(t *testing.T) {
 		totalHomeTries := 0.0
 		totalAwayTries := 0.0
 		totalHomeConv := 0.0
-		totalAwayConv := 0.0
 		totalHomeYellow := 0.0
 		for _, row := range events {
 			totalHomeTries += row[IdxHomeTry]
 			totalAwayTries += row[IdxAwayTry]
 			totalHomeConv += row[IdxHomeConv]
-			totalAwayConv += row[IdxAwayConv]
 			totalHomeYellow += row[IdxHomeYellow]
 		}
-		// From the CSV: final score 43-21
-		// Home (25900): 43 points. Tries worth 5, conversions 2.
-		// Away (25907): 21 points.
-		// Checking try counts are reasonable:
 		if totalHomeTries < 1 {
 			t.Errorf("expected at least 1 home try, got %f", totalHomeTries)
 		}
@@ -89,5 +99,30 @@ func TestTransformEventsToStateTimeStorage(t *testing.T) {
 		if totalHomeYellow < 1 {
 			t.Errorf("expected at least 1 home yellow, got %f", totalHomeYellow)
 		}
+	})
+}
+
+func TestComputeConversionProbabilities(t *testing.T) {
+	t.Run("test conversion probabilities for known match", func(t *testing.T) {
+		storage, err := TransformEventsToStateTimeStorage(
+			"../../dat/events.csv", 600009, 25900,
+		)
+		if err != nil {
+			t.Fatalf("failed to load data: %v", err)
+		}
+
+		probs := ComputeConversionProbabilities(storage)
+		if len(probs) != 2 {
+			t.Fatalf("expected 2 probabilities, got %d", len(probs))
+		}
+
+		// Probabilities should be between 0 and 1.
+		for i, p := range probs {
+			if p < 0 || p > 1 {
+				t.Errorf("prob[%d] = %f, expected in [0, 1]", i, p)
+			}
+		}
+
+		t.Logf("conversion probabilities: home=%f, away=%f", probs[0], probs[1])
 	})
 }

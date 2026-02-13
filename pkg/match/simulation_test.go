@@ -14,8 +14,9 @@ func TestMatchSimulation(t *testing.T) {
 		func(t *testing.T) {
 			scoreCoeffs := []float64{-3.0, -3.0, -3.5, -3.5}
 			cardCoeffs := []float64{-4.5, -4.5}
+			convProbs := []float64{0.5, 0.5}
 			generator := NewMatchSimulationConfigGenerator(
-				scoreCoeffs, cardCoeffs, 7832, 80, 1.0,
+				scoreCoeffs, cardCoeffs, convProbs, 7832, 80, 1.0,
 			)
 			store := simulator.NewStateTimeStorage()
 			generator.SetSimulation(&simulator.SimulationConfig{
@@ -43,6 +44,22 @@ func TestMatchSimulation(t *testing.T) {
 					t.Errorf("step %d: away score negative: %f", i, state[StateIdxAwayScore])
 				}
 			}
+
+			// Conversions should not exceed tries.
+			scoreEvents := store.GetValues("score_events")
+			convEvents := store.GetValues("conversion_events")
+			if len(scoreEvents) > 0 && len(convEvents) > 0 {
+				lastScore := scoreEvents[len(scoreEvents)-1]
+				lastConv := convEvents[len(convEvents)-1]
+				if lastConv[0] > lastScore[0] {
+					t.Errorf("home conversions (%f) exceed home tries (%f)",
+						lastConv[0], lastScore[0])
+				}
+				if lastConv[1] > lastScore[1] {
+					t.Errorf("away conversions (%f) exceed away tries (%f)",
+						lastConv[1], lastScore[1])
+				}
+			}
 		},
 	)
 	t.Run(
@@ -60,6 +77,7 @@ func TestMatchSimulation(t *testing.T) {
 				},
 				&discrete.CoxProcessIteration{},
 				&discrete.CoxProcessIteration{},
+				&ConversionIteration{},
 				&general.ValuesFunctionIteration{
 					Function: MatchStateFunction,
 				},

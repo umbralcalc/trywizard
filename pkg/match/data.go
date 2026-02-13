@@ -11,26 +11,51 @@ import (
 )
 
 const (
-	IdxHomeTry    = 0
-	IdxAwayTry    = 1
-	IdxHomeConv   = 2
-	IdxAwayConv   = 3
-	IdxHomeYellow = 4
-	IdxAwayYellow = 5
-	EventWidth    = 6
+	IdxHomeTry     = 0
+	IdxAwayTry     = 1
+	IdxHomePenalty  = 2
+	IdxAwayPenalty  = 3
+	IdxHomeConv    = 4
+	IdxAwayConv    = 5
+	IdxHomeYellow  = 6
+	IdxAwayYellow  = 7
+	EventWidth     = 8
 )
 
 // eventKey maps (event_type, is_home) to state vector index.
 var eventKey = map[string]map[bool]int{
-	"try":         {true: IdxHomeTry, false: IdxAwayTry},
-	"conversion":  {true: IdxHomeConv, false: IdxAwayConv},
-	"yellow card": {true: IdxHomeYellow, false: IdxAwayYellow},
+	"try":          {true: IdxHomeTry, false: IdxAwayTry},
+	"penalty goal": {true: IdxHomePenalty, false: IdxAwayPenalty},
+	"conversion":   {true: IdxHomeConv, false: IdxAwayConv},
+	"yellow card":  {true: IdxHomeYellow, false: IdxAwayYellow},
+}
+
+// ComputeConversionProbabilities computes the per-team probability of
+// converting a try, estimated as the ratio of conversions to tries.
+// Returns [homeProb, awayProb]. Defaults to 0.5 if a team has no tries.
+func ComputeConversionProbabilities(storage *simulator.StateTimeStorage) []float64 {
+	events := storage.GetValues("events")
+	var homeTries, awayTries, homeConv, awayConv float64
+	for _, ev := range events {
+		homeTries += ev[IdxHomeTry]
+		awayTries += ev[IdxAwayTry]
+		homeConv += ev[IdxHomeConv]
+		awayConv += ev[IdxAwayConv]
+	}
+	homeProb, awayProb := 0.5, 0.5
+	if homeTries > 0 {
+		homeProb = homeConv / homeTries
+	}
+	if awayTries > 0 {
+		awayProb = awayConv / awayTries
+	}
+	return []float64{homeProb, awayProb}
 }
 
 // TransformEventsToStateTimeStorage reads events.csv and produces a
 // StateTimeStorage with one partition ("events") containing per-minute
 // event counts. The state vector per minute has width EventWidth:
-// [home_try, away_try, home_conv, away_conv, home_yellow, away_yellow].
+// [home_try, away_try, home_penalty, away_penalty, home_conv, away_conv, home_yellow, away_yellow].
 //
 // The gameID filters to a single match. The homeTeamID identifies which
 // team_id is the home team, used to split events into home/away.
