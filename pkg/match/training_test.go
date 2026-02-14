@@ -52,6 +52,64 @@ func TestComputeMLERates(t *testing.T) {
 	)
 }
 
+func TestInitCoefficientsFromRates(t *testing.T) {
+	t.Run(
+		"test that init coefficients have correct structure",
+		func(t *testing.T) {
+			rates := []float64{0.1, 0.05, 0.01, 0.01, 0.015, 0.001}
+			coeffs := InitCoefficientsFromRates(rates)
+			if len(coeffs) != TotalCoeffWidth {
+				t.Fatalf("expected %d coeffs, got %d", TotalCoeffWidth, len(coeffs))
+			}
+			// Check intercepts are log(rate).
+			for i := 0; i < RateEventWidth; i++ {
+				expected := math.Log(rates[i])
+				got := coeffs[i*CoeffsPerRate]
+				if !scalar.EqualWithinAbs(got, expected, 1e-10) {
+					t.Errorf("intercept[%d]: expected %f, got %f", i, expected, got)
+				}
+				// Covariate coefficients should be zero.
+				for j := 1; j < CoeffsPerRate; j++ {
+					if coeffs[i*CoeffsPerRate+j] != 0 {
+						t.Errorf("coeff[%d][%d] should be 0, got %f",
+							i, j, coeffs[i*CoeffsPerRate+j])
+					}
+				}
+			}
+		},
+	)
+}
+
+func TestSplitCoefficients(t *testing.T) {
+	t.Run(
+		"test that split coefficients match original",
+		func(t *testing.T) {
+			coeffs := make([]float64, TotalCoeffWidth)
+			for i := range coeffs {
+				coeffs[i] = float64(i)
+			}
+			score, card := SplitCoefficients(coeffs)
+			if len(score) != ScoreCoeffWidth {
+				t.Fatalf("expected %d score coeffs, got %d", ScoreCoeffWidth, len(score))
+			}
+			if len(card) != CardCoeffWidth {
+				t.Fatalf("expected %d card coeffs, got %d", CardCoeffWidth, len(card))
+			}
+			for i := range score {
+				if score[i] != float64(i) {
+					t.Errorf("score[%d]: expected %f, got %f", i, float64(i), score[i])
+				}
+			}
+			for i := range card {
+				if card[i] != float64(ScoreCoeffWidth+i) {
+					t.Errorf("card[%d]: expected %f, got %f",
+						i, float64(ScoreCoeffWidth+i), card[i])
+				}
+			}
+		},
+	)
+}
+
 func TestMatchRateTraining(t *testing.T) {
 	t.Run(
 		"test that gradient descent training runs",
@@ -107,6 +165,69 @@ func TestMatchRateTraining(t *testing.T) {
 						i, initDist, fitDist,
 					)
 				}
+			}
+		},
+	)
+}
+
+func TestMatchCovariateRateTraining(t *testing.T) {
+	t.Run(
+		"test that covariate-aware gradient descent training runs",
+		func(t *testing.T) {
+			storage, err := TransformEventsWithCovariates(
+				"../../dat/events.csv", "../../dat/players.csv", 600009, 25900,
+			)
+			if err != nil {
+				t.Fatalf("failed to load data: %v", err)
+			}
+
+			// Build combined storage for training.
+			combStorage := RateEventsWithCovariatesStorage(storage)
+
+			// Initialize from MLE rates.
+			mleRates := ComputeMLERates(storage)
+			initCoeffs := InitCoefficientsFromRates(mleRates)
+
+			windowDepth := 10
+			descentIterations := 5
+			outputStorage := RunMatchCovariateRateTraining(
+				combStorage, initCoeffs, 0.0001, descentIterations, windowDepth,
+			)
+
+			fittedCoeffs := ExtractFittedCoefficients(outputStorage)
+			if fittedCoeffs == nil {
+				t.Fatal("expected non-empty training output")
+			}
+
+			t.Logf("init coeffs:   %v", initCoeffs[:9])
+			t.Logf("fitted coeffs: %v", fittedCoeffs[:9])
+
+			// All fitted coefficients should be finite.
+			for i, c := range fittedCoeffs {
+				if math.IsNaN(c) || math.IsInf(c, 0) {
+					t.Errorf("coeff[%d] is NaN/Inf: %f", i, c)
+				}
+			}
+
+			// Intercepts should be close to log(MLE rate).
+			for i := 0; i < RateEventWidth; i++ {
+				intercept := fittedCoeffs[i*CoeffsPerRate]
+				expected := math.Log(mleRates[i])
+				// With covariates and gradient descent, intercepts may shift,
+				// but should be in the same ballpark.
+				if math.Abs(intercept-expected) > 2.0 {
+					t.Errorf("intercept[%d]: %f far from expected %f",
+						i, intercept, expected)
+				}
+			}
+
+			// Split should produce correct lengths.
+			score, card := SplitCoefficients(fittedCoeffs)
+			if len(score) != ScoreCoeffWidth {
+				t.Errorf("expected %d score coeffs, got %d", ScoreCoeffWidth, len(score))
+			}
+			if len(card) != CardCoeffWidth {
+				t.Errorf("expected %d card coeffs, got %d", CardCoeffWidth, len(card))
 			}
 		},
 	)

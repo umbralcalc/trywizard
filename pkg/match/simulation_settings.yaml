@@ -1,7 +1,17 @@
 iterations:
+- name: sub_covariates
+  params:
+    param_values: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  init_state_values: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  seed: 0
+  state_width: 8
+  state_history_depth: 1
 - name: score_rates
   params:
     coefficients: [-3.0, -3.0, -3.5, -3.5]
+  params_from_upstream:
+    covariates:
+      upstream: 0
   init_state_values: [0.0, 0.0, 0.0, 0.0]
   seed: 0
   state_width: 4
@@ -9,6 +19,9 @@ iterations:
 - name: card_rates
   params:
     coefficients: [-4.5, -4.5]
+  params_from_upstream:
+    covariates:
+      upstream: 0
   init_state_values: [0.0, 0.0]
   seed: 0
   state_width: 2
@@ -17,7 +30,7 @@ iterations:
   params: {}
   params_from_upstream:
     rates:
-      upstream: 0
+      upstream: 1
   init_state_values: [0.0, 0.0, 0.0, 0.0]
   seed: 7832
   state_width: 4
@@ -26,7 +39,7 @@ iterations:
   params: {}
   params_from_upstream:
     rates:
-      upstream: 1
+      upstream: 2
   init_state_values: [0.0, 0.0]
   seed: 7833
   state_width: 2
@@ -36,21 +49,21 @@ iterations:
     conversion_probs: [0.5, 0.5]
   params_from_upstream:
     try_values:
-      upstream: 2
+      upstream: 3
   init_state_values: [0.0, 0.0]
   seed: 7834
   state_width: 2
   state_history_depth: 1
 - name: match_state
   params:
-    card_partition: [3]
+    card_partition: [4]
   params_from_upstream:
     score_values:
-      upstream: 2
-    conversion_values:
-      upstream: 4
-    card_values:
       upstream: 3
+    conversion_values:
+      upstream: 5
+    card_values:
+      upstream: 4
   init_state_values: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
   seed: 0
   state_width: 6

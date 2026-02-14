@@ -158,3 +158,136 @@ func ExtractFittedRates(
 	lastState := fitResults[len(fitResults)-1]
 	return lastState[len(lastState)-RateEventWidth:]
 }
+
+// CovariateDataWidth is the width of the combined data partition used for
+// covariate-aware training: [rate_event_counts(6), covariates(8)].
+const CovariateDataWidth = RateEventWidth + SubCovWidth
+
+// TotalCoeffWidth is the total number of β coefficients across all rate
+// types: 6 rates × 9 coefficients each = 54.
+const TotalCoeffWidth = RateEventWidth * CoeffsPerRate
+
+// RateEventsWithCovariatesStorage creates a StateTimeStorage containing
+// combined [rate_event_counts, sub_covariates] rows for covariate-aware
+// training. The partition is named "events_with_covariates".
+func RateEventsWithCovariatesStorage(
+	storage *simulator.StateTimeStorage,
+) *simulator.StateTimeStorage {
+	events := storage.GetValues("events")
+	covariates := storage.GetValues("sub_covariates")
+	times := storage.GetTimes()
+	combined := simulator.NewStateTimeStorage()
+	for i, row := range events {
+		combRow := make([]float64, CovariateDataWidth)
+		for j, idx := range rateEventIndices {
+			combRow[j] = row[idx]
+		}
+		if i < len(covariates) {
+			copy(combRow[RateEventWidth:], covariates[i])
+		}
+		combined.ConcurrentAppend("events_with_covariates", times[i], combRow)
+	}
+	return combined
+}
+
+// InitCoefficientsFromRates creates an initial coefficient vector for the
+// covariate model from MLE rates. Intercepts are set to log(rate), all
+// covariate coefficients are set to 0.
+func InitCoefficientsFromRates(rates []float64) []float64 {
+	coeffs := make([]float64, TotalCoeffWidth)
+	for i := 0; i < RateEventWidth; i++ {
+		coeffs[i*CoeffsPerRate] = math.Log(rates[i])
+	}
+	return coeffs
+}
+
+// SplitCoefficients splits a flat coefficient vector (length TotalCoeffWidth=54)
+// into score coefficients (length ScoreCoeffWidth=36) and card coefficients
+// (length CardCoeffWidth=18).
+func SplitCoefficients(coeffs []float64) (scoreCoeffs, cardCoeffs []float64) {
+	scoreCoeffs = make([]float64, ScoreCoeffWidth)
+	cardCoeffs = make([]float64, CardCoeffWidth)
+	copy(scoreCoeffs, coeffs[:ScoreCoeffWidth])
+	copy(cardCoeffs, coeffs[ScoreCoeffWidth:])
+	return scoreCoeffs, cardCoeffs
+}
+
+// NewMatchCovariateRateTrainingPartition creates a partition that fits
+// event rate coefficients (intercepts + covariate effects) using gradient
+// descent on the Poisson GLM log-likelihood. The gradient_descent state
+// represents the current coefficient estimates (TotalCoeffWidth values).
+//
+// The input storage must contain an "events_with_covariates" partition
+// (use RateEventsWithCovariatesStorage to build it).
+func NewMatchCovariateRateTrainingPartition(
+	storage *simulator.StateTimeStorage,
+	learningRate float64,
+	descentIterations int,
+	windowDepth int,
+) *simulator.PartitionConfig {
+	return analysis.NewLikelihoodMeanFunctionFitPartition(
+		analysis.AppliedLikelihoodMeanFunctionFit{
+			Name: "covariate_rate_fit",
+			Model: analysis.ParameterisedModelWithGradient{
+				Likelihood: &PoissonCovariateGLMLikelihood{
+					NRates: RateEventWidth,
+					NCovs:  SubCovWidth,
+				},
+				Params: simulator.NewParams(make(map[string][]float64)),
+			},
+			Gradient: analysis.LikelihoodMeanGradient{
+				Function: inference.MeanGradientFunc,
+				Width:    TotalCoeffWidth,
+			},
+			Data: analysis.DataRef{PartitionName: "events_with_covariates"},
+			Window: analysis.WindowedPartitions{
+				Data:  []analysis.DataRef{{PartitionName: "events_with_covariates"}},
+				Depth: windowDepth,
+			},
+			LearningRate:      learningRate,
+			DescentIterations: descentIterations,
+		},
+		storage,
+	)
+}
+
+// RunMatchCovariateRateTraining runs gradient descent training to fit
+// event rate coefficients (intercepts + covariate effects) and returns
+// the output storage with fitted coefficient trajectories.
+// The input storage should contain "events_with_covariates"
+// (use RateEventsWithCovariatesStorage to build it).
+func RunMatchCovariateRateTraining(
+	storage *simulator.StateTimeStorage,
+	initCoeffs []float64,
+	learningRate float64,
+	descentIterations int,
+	windowDepth int,
+) *simulator.StateTimeStorage {
+	fit := NewMatchCovariateRateTrainingPartition(
+		storage, learningRate, descentIterations, windowDepth,
+	)
+	fit.Params.Set("gradient_descent/init_state_values", initCoeffs)
+	fit.Params.Set("gradient_descent/ascent", []float64{1.0})
+	copy(fit.InitStateValues[len(fit.InitStateValues)-TotalCoeffWidth:], initCoeffs)
+
+	return analysis.AddPartitionsToStateTimeStorage(
+		storage,
+		[]*simulator.PartitionConfig{fit},
+		map[string]int{"events_with_covariates": windowDepth},
+	)
+}
+
+// ExtractFittedCoefficients returns the final fitted coefficients from
+// covariate-aware training output. The covariate_rate_fit state is
+// [events_with_covariates..., gradient..., gradient_descent...];
+// the last TotalCoeffWidth values are the gradient_descent output.
+func ExtractFittedCoefficients(
+	storage *simulator.StateTimeStorage,
+) []float64 {
+	fitResults := storage.GetValues("covariate_rate_fit")
+	if len(fitResults) == 0 {
+		return nil
+	}
+	lastState := fitResults[len(fitResults)-1]
+	return lastState[len(lastState)-TotalCoeffWidth:]
+}

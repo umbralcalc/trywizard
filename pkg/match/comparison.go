@@ -15,7 +15,46 @@ type SimulationResult struct {
 	EventTotals []float64
 }
 
-// RunMatchSimulations runs nSims forward simulations with MLE-fitted
+// extractResult extracts a SimulationResult from a completed simulation store.
+func extractResult(store *simulator.StateTimeStorage) SimulationResult {
+	states := store.GetValues("match_state")
+	trajectory := make([]ScorePoint, len(states))
+	for j, s := range states {
+		trajectory[j] = ScorePoint{
+			Home: s[StateIdxHomeScore],
+			Away: s[StateIdxAwayScore],
+		}
+	}
+
+	totals := make([]float64, EventWidth)
+	scoreEvents := store.GetValues("score_events")
+	convEvents := store.GetValues("conversion_events")
+	cardEvents := store.GetValues("card_events")
+	if len(scoreEvents) > 0 {
+		last := scoreEvents[len(scoreEvents)-1]
+		totals[IdxHomeTry] = last[0]
+		totals[IdxAwayTry] = last[1]
+		totals[IdxHomePenalty] = last[2]
+		totals[IdxAwayPenalty] = last[3]
+	}
+	if len(convEvents) > 0 {
+		last := convEvents[len(convEvents)-1]
+		totals[IdxHomeConv] = last[0]
+		totals[IdxAwayConv] = last[1]
+	}
+	if len(cardEvents) > 0 {
+		last := cardEvents[len(cardEvents)-1]
+		totals[IdxHomeYellow] = last[0]
+		totals[IdxAwayYellow] = last[1]
+	}
+
+	return SimulationResult{
+		ScoreTrajectory: trajectory,
+		EventTotals:     totals,
+	}
+}
+
+// RunMatchSimulations runs nSims forward simulations with intercept-only
 // coefficients and returns the results. Each simulation uses seed
 // baseSeed+i for i in [0, nSims).
 func RunMatchSimulations(
@@ -41,44 +80,39 @@ func RunMatchSimulations(
 		settings, implementations := generator.GenerateConfigs()
 		coordinator := simulator.NewPartitionCoordinator(settings, implementations)
 		coordinator.Run()
+		results[i] = extractResult(store)
+	}
+	return results
+}
 
-		// Extract score trajectory from match_state.
-		states := store.GetValues("match_state")
-		trajectory := make([]ScorePoint, len(states))
-		for j, s := range states {
-			trajectory[j] = ScorePoint{
-				Home: s[StateIdxHomeScore],
-				Away: s[StateIdxAwayScore],
-			}
-		}
-
-		// Extract event totals from score_events, conversion_events, and card_events.
-		totals := make([]float64, EventWidth)
-		scoreEvents := store.GetValues("score_events")
-		convEvents := store.GetValues("conversion_events")
-		cardEvents := store.GetValues("card_events")
-		if len(scoreEvents) > 0 {
-			last := scoreEvents[len(scoreEvents)-1]
-			totals[IdxHomeTry] = last[0]
-			totals[IdxAwayTry] = last[1]
-			totals[IdxHomePenalty] = last[2]
-			totals[IdxAwayPenalty] = last[3]
-		}
-		if len(convEvents) > 0 {
-			last := convEvents[len(convEvents)-1]
-			totals[IdxHomeConv] = last[0]
-			totals[IdxAwayConv] = last[1]
-		}
-		if len(cardEvents) > 0 {
-			last := cardEvents[len(cardEvents)-1]
-			totals[IdxHomeYellow] = last[0]
-			totals[IdxAwayYellow] = last[1]
-		}
-
-		results[i] = SimulationResult{
-			ScoreTrajectory: trajectory,
-			EventTotals:     totals,
-		}
+// RunMatchSimulationsWithCovariates runs nSims forward simulations with
+// covariate-aware coefficients and a substitution covariate partition.
+func RunMatchSimulationsWithCovariates(
+	scoreCoeffs, cardCoeffs, convProbs []float64,
+	subCovPartition *simulator.PartitionConfig,
+	nSims, nSteps int,
+	baseSeed uint64,
+) []SimulationResult {
+	results := make([]SimulationResult, nSims)
+	for i := 0; i < nSims; i++ {
+		store := simulator.NewStateTimeStorage()
+		generator := NewMatchSimulationConfigGeneratorWithCovariates(
+			scoreCoeffs, cardCoeffs, convProbs,
+			subCovPartition, baseSeed+uint64(i), nSteps, 1.0,
+		)
+		generator.SetSimulation(&simulator.SimulationConfig{
+			OutputCondition: &simulator.EveryStepOutputCondition{},
+			OutputFunction:  &simulator.StateTimeStorageOutputFunction{Store: store},
+			TerminationCondition: &simulator.NumberOfStepsTerminationCondition{
+				MaxNumberOfSteps: nSteps,
+			},
+			TimestepFunction: &simulator.ConstantTimestepFunction{Stepsize: 1.0},
+			InitTimeValue:    0.0,
+		})
+		settings, implementations := generator.GenerateConfigs()
+		coordinator := simulator.NewPartitionCoordinator(settings, implementations)
+		coordinator.Run()
+		results[i] = extractResult(store)
 	}
 	return results
 }

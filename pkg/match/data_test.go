@@ -102,6 +102,94 @@ func TestTransformEventsToStateTimeStorage(t *testing.T) {
 	})
 }
 
+func TestLoadPlayerPositions(t *testing.T) {
+	t.Run("test player positions for known game", func(t *testing.T) {
+		positions, err := LoadPlayerPositions("../../dat/players.csv", 600009)
+		if err != nil {
+			t.Fatalf("failed to load positions: %v", err)
+		}
+		if len(positions) == 0 {
+			t.Fatal("expected non-empty positions map")
+		}
+		// All group indices should be valid.
+		for pid, grp := range positions {
+			if grp < 0 || grp >= NumPositionGroups {
+				t.Errorf("player %d: invalid group %d", pid, grp)
+			}
+		}
+		t.Logf("loaded %d player positions", len(positions))
+	})
+}
+
+func TestBuildSubstitutionCovariates(t *testing.T) {
+	t.Run("test substitution covariates for known game", func(t *testing.T) {
+		covariates, err := BuildSubstitutionCovariates(
+			"../../dat/events.csv", "../../dat/players.csv", 600009, 25900, 80,
+		)
+		if err != nil {
+			t.Fatalf("failed to build covariates: %v", err)
+		}
+		if len(covariates) != 81 {
+			t.Fatalf("expected 81 rows, got %d", len(covariates))
+		}
+		for i, row := range covariates {
+			if len(row) != SubCovWidth {
+				t.Errorf("minute %d: expected width %d, got %d", i, SubCovWidth, len(row))
+			}
+			// All values should be 0 or 1.
+			for j, v := range row {
+				if v != 0.0 && v != 1.0 {
+					t.Errorf("minute %d cov[%d] = %f, expected 0 or 1", i, j, v)
+				}
+			}
+		}
+		// Minute 0 should have all zeros (no subs yet).
+		for j, v := range covariates[0] {
+			if v != 0.0 {
+				t.Errorf("minute 0 cov[%d] = %f, expected 0", j, v)
+			}
+		}
+		// Covariates should be monotonically non-decreasing (once 1, stays 1).
+		for j := 0; j < SubCovWidth; j++ {
+			for i := 1; i < len(covariates); i++ {
+				if covariates[i][j] < covariates[i-1][j] {
+					t.Errorf("cov[%d] decreased at minute %d", j, i)
+				}
+			}
+		}
+		t.Logf("final covariates: %v", covariates[80])
+	})
+}
+
+func TestTransformEventsWithCovariates(t *testing.T) {
+	t.Run("test combined storage has both partitions", func(t *testing.T) {
+		storage, err := TransformEventsWithCovariates(
+			"../../dat/events.csv", "../../dat/players.csv", 600009, 25900,
+		)
+		if err != nil {
+			t.Fatalf("failed: %v", err)
+		}
+		events := storage.GetValues("events")
+		covariates := storage.GetValues("sub_covariates")
+		if len(events) == 0 {
+			t.Fatal("expected non-empty events")
+		}
+		if len(covariates) == 0 {
+			t.Fatal("expected non-empty sub_covariates")
+		}
+		if len(events) != len(covariates) {
+			t.Errorf("events length %d != covariates length %d",
+				len(events), len(covariates))
+		}
+		for i, row := range covariates {
+			if len(row) != SubCovWidth {
+				t.Errorf("minute %d: covariate width %d, expected %d",
+					i, len(row), SubCovWidth)
+			}
+		}
+	})
+}
+
 func TestComputeConversionProbabilities(t *testing.T) {
 	t.Run("test conversion probabilities for known match", func(t *testing.T) {
 		storage, err := TransformEventsToStateTimeStorage(

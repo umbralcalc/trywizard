@@ -5,8 +5,9 @@ import (
 	"github.com/umbralcalc/stochadex/pkg/simulator"
 )
 
-// NewMatchSimulationPartitions returns the partition configs for a forward
-// match simulation. The partitions are:
+// NewMatchSimulationPartitionsWithCovariates returns the partition configs
+// for a forward match simulation with substitution covariates. 7 partitions:
+//   - sub_covariates: substitution covariate data (replayed or constant)
 //   - score_rates: log-linear rate model for scoring events (width 4)
 //   - card_rates: log-linear rate model for card events (width 2)
 //   - score_events: Cox process for tries and penalties (width 4)
@@ -14,17 +15,25 @@ import (
 //   - conversion_events: Bernoulli trials per new try (width 2)
 //   - match_state: derived match state (scores, active cards, half)
 //
-// scoreCoefficients has length ScoreRateWidth (4): [try_h, try_a, penalty_h, penalty_a].
-// cardCoefficients has length CardRateWidth (2).
+// scoreCoefficients has length ScoreCoeffWidth (36) with CoeffsPerRate stride.
+// cardCoefficients has length CardCoeffWidth (18) with CoeffsPerRate stride.
 // conversionProbabilities has length 2: [home_prob, away_prob].
-func NewMatchSimulationPartitions(
+func NewMatchSimulationPartitionsWithCovariates(
 	scoreCoefficients []float64,
 	cardCoefficients []float64,
 	conversionProbabilities []float64,
+	subCovPartition *simulator.PartitionConfig,
 	seed uint64,
 ) []*simulator.PartitionConfig {
 	scoreRates := NewScoreRatesPartition(scoreCoefficients)
+	scoreRates.ParamsFromUpstream = map[string]simulator.NamedUpstreamConfig{
+		"covariates": {Upstream: "sub_covariates"},
+	}
+
 	cardRates := NewCardRatesPartition(cardCoefficients)
+	cardRates.ParamsFromUpstream = map[string]simulator.NamedUpstreamConfig{
+		"covariates": {Upstream: "sub_covariates"},
+	}
 
 	scoreEvents := &simulator.PartitionConfig{
 		Name:      "score_events",
@@ -67,6 +76,7 @@ func NewMatchSimulationPartitions(
 	matchState := NewMatchStatePartition()
 
 	return []*simulator.PartitionConfig{
+		subCovPartition,
 		scoreRates,
 		cardRates,
 		scoreEvents,
@@ -76,12 +86,32 @@ func NewMatchSimulationPartitions(
 	}
 }
 
-// NewMatchSimulationConfigGenerator creates a ConfigGenerator for a full
-// match simulation with the given coefficients and simulation parameters.
-func NewMatchSimulationConfigGenerator(
+// NewMatchSimulationPartitions returns the partition configs for a forward
+// match simulation without covariates. Backward-compatible wrapper that
+// uses a zero-constant covariate partition.
+//
+// scoreCoefficients has length ScoreRateWidth (4): intercept-only.
+// cardCoefficients has length CardRateWidth (2): intercept-only.
+func NewMatchSimulationPartitions(
 	scoreCoefficients []float64,
 	cardCoefficients []float64,
 	conversionProbabilities []float64,
+	seed uint64,
+) []*simulator.PartitionConfig {
+	subCov := NewSubCovariatesConstantPartition(make([]float64, SubCovWidth))
+	return NewMatchSimulationPartitionsWithCovariates(
+		scoreCoefficients, cardCoefficients, conversionProbabilities,
+		subCov, seed,
+	)
+}
+
+// NewMatchSimulationConfigGeneratorWithCovariates creates a ConfigGenerator
+// for a full match simulation with substitution covariates.
+func NewMatchSimulationConfigGeneratorWithCovariates(
+	scoreCoefficients []float64,
+	cardCoefficients []float64,
+	conversionProbabilities []float64,
+	subCovPartition *simulator.PartitionConfig,
 	seed uint64,
 	numSteps int,
 	stepSize float64,
@@ -96,10 +126,28 @@ func NewMatchSimulationConfigGenerator(
 		TimestepFunction: &simulator.ConstantTimestepFunction{Stepsize: stepSize},
 		InitTimeValue:    0.0,
 	})
-	for _, partition := range NewMatchSimulationPartitions(
-		scoreCoefficients, cardCoefficients, conversionProbabilities, seed,
+	for _, partition := range NewMatchSimulationPartitionsWithCovariates(
+		scoreCoefficients, cardCoefficients, conversionProbabilities,
+		subCovPartition, seed,
 	) {
 		generator.SetPartition(partition)
 	}
 	return generator
+}
+
+// NewMatchSimulationConfigGenerator creates a ConfigGenerator for a full
+// match simulation without covariates. Backward-compatible wrapper.
+func NewMatchSimulationConfigGenerator(
+	scoreCoefficients []float64,
+	cardCoefficients []float64,
+	conversionProbabilities []float64,
+	seed uint64,
+	numSteps int,
+	stepSize float64,
+) *simulator.ConfigGenerator {
+	subCov := NewSubCovariatesConstantPartition(make([]float64, SubCovWidth))
+	return NewMatchSimulationConfigGeneratorWithCovariates(
+		scoreCoefficients, cardCoefficients, conversionProbabilities,
+		subCov, seed, numSteps, stepSize,
+	)
 }

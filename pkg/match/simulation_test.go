@@ -69,6 +69,7 @@ func TestMatchSimulation(t *testing.T) {
 				"./simulation_settings.yaml",
 			)
 			iterations := []simulator.Iteration{
+				&general.ParamValuesIteration{},
 				&general.ValuesFunctionIteration{
 					Function: ScoreEventRateFunction,
 				},

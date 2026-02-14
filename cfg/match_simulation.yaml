@@ -1,11 +1,27 @@
 main:
   partitions:
 
+  # Substitution covariates (constant zeros for baseline simulation)
+  - name: sub_covariates
+    iteration: subCovIter
+    params:
+      param_values: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    init_state_values: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    state_history_depth: 1
+    seed: 0
+    extra_packages:
+    - github.com/umbralcalc/stochadex/pkg/general
+    extra_vars:
+    - subCovIter: "&general.ParamValuesIteration{}"
+
   # Log-linear rate model for scoring events (tries + penalties)
   - name: score_rates
     iteration: scoreRateFunc
     params:
       coefficients: [-2.45, -3.0, -3.5, -3.5]
+    params_from_upstream:
+      covariates:
+        upstream: sub_covariates
     init_state_values: [0.0, 0.0, 0.0, 0.0]
     state_history_depth: 1
     seed: 0
@@ -20,6 +36,9 @@ main:
     iteration: cardRateFunc
     params:
       coefficients: [-4.4, -14.0]
+    params_from_upstream:
+      covariates:
+        upstream: sub_covariates
     init_state_values: [0.0, 0.0]
     state_history_depth: 1
     seed: 0
@@ -79,7 +98,7 @@ main:
   - name: match_state
     iteration: stateFunc
     params:
-      card_partition: [3]
+      card_partition: [4]
     params_from_upstream:
       score_values:
         upstream: score_events
