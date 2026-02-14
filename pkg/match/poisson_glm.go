@@ -24,6 +24,7 @@ import (
 //
 // The gradient returned by EvaluateLogLikeMeanGrad is w.r.t. β (not μ).
 type PoissonCovariateGLMLikelihood struct {
+	Src    rand.Source
 	NRates int
 	NCovs  int
 	beta   *mat.VecDense
@@ -33,7 +34,10 @@ func (p *PoissonCovariateGLMLikelihood) SetSeed(
 	partitionIndex int,
 	settings *simulator.Settings,
 ) {
-	// No RNG needed for Poisson log-likelihood evaluation.
+	p.Src = rand.NewPCG(
+		settings.Iterations[partitionIndex].Seed,
+		settings.Iterations[partitionIndex].Seed,
+	)
 }
 
 func (p *PoissonCovariateGLMLikelihood) SetParams(
@@ -82,8 +86,7 @@ func (p *PoissonCovariateGLMLikelihood) GenerateNewSamples() []float64 {
 	// Generate Poisson samples from current rates (zero covariates).
 	samples := make([]float64, p.NRates+p.NCovs)
 	covs := make([]float64, p.NCovs)
-	src := rand.NewPCG(0, 0)
-	rng := rand.New(src)
+	rng := rand.New(p.Src)
 	for i := 0; i < p.NRates; i++ {
 		mu := p.computeRate(i, covs)
 		// Simple Poisson sampling via inverse transform.
