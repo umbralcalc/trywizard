@@ -13,8 +13,8 @@ import (
 const (
 	IdxHomeTry     = 0
 	IdxAwayTry     = 1
-	IdxHomePenalty  = 2
-	IdxAwayPenalty  = 3
+	IdxHomePenalty = 2
+	IdxAwayPenalty = 3
 	IdxHomeConv    = 4
 	IdxAwayConv    = 5
 	IdxHomeYellow  = 6
@@ -24,26 +24,26 @@ const (
 
 // Position group constants for substitution covariates.
 const (
-	SubCovWidth      = 8 // 4 groups × 2 teams
+	SubCovWidth       = 8 // 4 groups × 2 teams
 	NumPositionGroups = 4
-	GrpFrontRow      = 0
-	GrpBackRow       = 1
-	GrpHalves        = 2
-	GrpOutsideBacks  = 3
+	GrpFrontRow       = 0
+	GrpBackRow        = 1
+	GrpHalves         = 2
+	GrpOutsideBacks   = 3
 )
 
 // positionToGroup maps lowercase position name to group index.
 var positionToGroup = map[string]int{
-	"prop":      GrpFrontRow,
-	"hooker":    GrpFrontRow,
-	"lock":      GrpBackRow,
-	"flanker":   GrpBackRow,
-	"no. 8":     GrpBackRow,
+	"prop":       GrpFrontRow,
+	"hooker":     GrpFrontRow,
+	"lock":       GrpBackRow,
+	"flanker":    GrpBackRow,
+	"no. 8":      GrpBackRow,
 	"scrum-half": GrpHalves,
-	"fly-half":  GrpHalves,
-	"centre":    GrpOutsideBacks,
-	"wing":      GrpOutsideBacks,
-	"fullback":  GrpOutsideBacks,
+	"fly-half":   GrpHalves,
+	"centre":     GrpOutsideBacks,
+	"wing":       GrpOutsideBacks,
+	"fullback":   GrpOutsideBacks,
 }
 
 // eventKey maps (event_type, is_home) to state vector index.

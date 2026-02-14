@@ -11,7 +11,7 @@ const (
 	ScoreRateWidth = 4 // home_try, away_try, home_penalty, away_penalty
 	CardRateWidth  = 2 // home_yellow, away_yellow
 
-	CoeffsPerRate   = 1 + SubCovWidth               // 9 (intercept + 8 covariates)
+	CoeffsPerRate   = 1 + SubCovWidth                // 9 (intercept + 8 covariates)
 	ScoreCoeffWidth = ScoreRateWidth * CoeffsPerRate // 36
 	CardCoeffWidth  = CardRateWidth * CoeffsPerRate  // 18
 )

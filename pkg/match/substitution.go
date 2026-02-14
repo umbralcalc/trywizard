@@ -25,7 +25,7 @@ func NewSubCovariatesReplayPartition(covariates [][]float64) *simulator.Partitio
 // for a "no substitutions" baseline.
 func NewSubCovariatesConstantPartition(values []float64) *simulator.PartitionConfig {
 	return &simulator.PartitionConfig{
-		Name: "sub_covariates",
+		Name:      "sub_covariates",
 		Iteration: &general.ParamValuesIteration{},
 		Params: simulator.NewParams(map[string][]float64{
 			"param_values": values,
