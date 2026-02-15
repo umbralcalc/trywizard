@@ -68,6 +68,9 @@ func NewMatchSimulationPartitionsWithCovariates(
 		ParamsFromUpstream: map[string]simulator.NamedUpstreamConfig{
 			"try_values": {Upstream: "score_events"},
 		},
+		ParamsAsPartitions: map[string][]string{
+			"score_events_partition": {"score_events"},
+		},
 		InitStateValues:   make([]float64, 2),
 		StateHistoryDepth: 1,
 		Seed:              seed + 2,

@@ -86,6 +86,8 @@ main:
     params_from_upstream:
       try_values:
         upstream: score_events
+    params_as_partitions:
+      score_events_partition: [score_events]
     init_state_values: [0.0, 0.0]
     state_history_depth: 1
     seed: 7834

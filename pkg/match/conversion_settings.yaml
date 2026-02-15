@@ -18,6 +18,7 @@ iterations:
 - name: conversion_events
   params:
     conversion_probs: [0.7, 0.7]
+    score_events_partition: [1]
   params_from_upstream:
     try_values:
       upstream: 1

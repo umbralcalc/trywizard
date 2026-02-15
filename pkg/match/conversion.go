@@ -14,10 +14,10 @@ import (
 // Params:
 //   - "conversion_probs": [home_prob, away_prob]
 //   - "try_values": upstream from score_events (all 4 values; uses indices 0,1 for try counts)
+//   - "score_events_partition": partition index (via params_as_partitions) for reading previous try counts
 type ConversionIteration struct {
-	uniformDist   *distuv.Uniform
-	lastHomeTries float64
-	lastAwayTries float64
+	uniformDist              *distuv.Uniform
+	scoreEventsPartitionIndex int
 }
 
 func (c *ConversionIteration) Configure(
@@ -32,8 +32,11 @@ func (c *ConversionIteration) Configure(
 			settings.Iterations[partitionIndex].Seed,
 		),
 	}
-	c.lastHomeTries = 0.0
-	c.lastAwayTries = 0.0
+	c.scoreEventsPartitionIndex = int(
+		settings.Iterations[partitionIndex].Params.Get(
+			"score_events_partition",
+		)[0],
+	)
 }
 
 func (c *ConversionIteration) Iterate(
@@ -48,8 +51,14 @@ func (c *ConversionIteration) Iterate(
 	currentHomeTries := tryValues[0]
 	currentAwayTries := tryValues[1]
 
-	newHomeTries := int(currentHomeTries - c.lastHomeTries)
-	newAwayTries := int(currentAwayTries - c.lastAwayTries)
+	// Previous try counts from score_events state history (row 0 = previous step,
+	// since history hasn't been updated yet when Iterate runs).
+	scoreHistory := stateHistories[c.scoreEventsPartitionIndex]
+	prevHomeTries := scoreHistory.Values.At(0, 0)
+	prevAwayTries := scoreHistory.Values.At(0, 1)
+
+	newHomeTries := int(currentHomeTries - prevHomeTries)
+	newAwayTries := int(currentAwayTries - prevAwayTries)
 
 	// Previous cumulative conversions from own state history.
 	prevHomeConv := stateHistories[partitionIndex].Values.At(0, 0)
@@ -68,9 +77,6 @@ func (c *ConversionIteration) Iterate(
 			awayConv += 1.0
 		}
 	}
-
-	c.lastHomeTries = currentHomeTries
-	c.lastAwayTries = currentAwayTries
 
 	return []float64{homeConv, awayConv}
 }
