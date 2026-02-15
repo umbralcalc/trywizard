@@ -1,3 +1,5 @@
 .vscode/**
 dat/**
 bin/**
+
+.DS_Store
