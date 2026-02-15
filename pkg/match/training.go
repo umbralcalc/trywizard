@@ -160,8 +160,13 @@ func ExtractFittedRates(
 }
 
 // CovariateDataWidth is the width of the combined data partition used for
-// covariate-aware training: [rate_event_counts(6), covariates(8)].
+// covariate-aware training without baseline: [rate_event_counts(6), covariates(8)].
 const CovariateDataWidth = RateEventWidth + SubCovWidth
+
+// BaselineCovariateDataWidth is the width of the combined data partition
+// used for covariate-aware training with baseline offset:
+// [rate_event_counts(6), covariates(8), baseline_rates(6)].
+const BaselineCovariateDataWidth = RateEventWidth + SubCovWidth + RateEventWidth
 
 // TotalCoeffWidth is the total number of β coefficients across all rate
 // types: 6 rates × 9 coefficients each = 54.
@@ -190,6 +195,34 @@ func RateEventsWithCovariatesStorage(
 	return combined
 }
 
+// RateEventsWithCovariatesAndBaselineStorage creates a StateTimeStorage
+// containing combined [rate_event_counts, sub_covariates, baseline_rates]
+// rows for covariate-aware training with baseline offset. The partition is
+// named "events_with_covariates_and_baseline".
+func RateEventsWithCovariatesAndBaselineStorage(
+	storage *simulator.StateTimeStorage,
+	baselineRates [][]float64,
+) *simulator.StateTimeStorage {
+	events := storage.GetValues("events")
+	covariates := storage.GetValues("sub_covariates")
+	times := storage.GetTimes()
+	combined := simulator.NewStateTimeStorage()
+	for i, row := range events {
+		combRow := make([]float64, BaselineCovariateDataWidth)
+		for j, idx := range rateEventIndices {
+			combRow[j] = row[idx]
+		}
+		if i < len(covariates) {
+			copy(combRow[RateEventWidth:], covariates[i])
+		}
+		if i < len(baselineRates) {
+			copy(combRow[RateEventWidth+SubCovWidth:], baselineRates[i])
+		}
+		combined.ConcurrentAppend("events_with_covariates_and_baseline", times[i], combRow)
+	}
+	return combined
+}
+
 // InitCoefficientsFromRates creates an initial coefficient vector for the
 // covariate model from MLE rates. Intercepts are set to log(rate), all
 // covariate coefficients are set to 0.
@@ -199,6 +232,14 @@ func InitCoefficientsFromRates(rates []float64) []float64 {
 		coeffs[i*CoeffsPerRate] = math.Log(rates[i])
 	}
 	return coeffs
+}
+
+// InitCoefficientsWithBaseline creates an initial coefficient vector for the
+// covariate model when using baseline rates. All intercepts and covariate
+// coefficients are set to 0, since the baseline already provides the rate
+// level and the intercepts learn per-match adjustments.
+func InitCoefficientsWithBaseline() []float64 {
+	return make([]float64, TotalCoeffWidth)
 }
 
 // SplitCoefficients splits a flat coefficient vector (length TotalCoeffWidth=54)
@@ -275,6 +316,83 @@ func RunMatchCovariateRateTraining(
 		[]*simulator.PartitionConfig{fit},
 		map[string]int{"events_with_covariates": windowDepth},
 	)
+}
+
+// NewMatchBaselineCovariateRateTrainingPartition creates a partition that
+// fits covariate effects with baseline offset using gradient descent on
+// the Poisson GLM log-likelihood. The rate model is:
+//
+//	μ_i = baseline_i * exp(Σⱼ βⱼ·covⱼ)
+//
+// The input storage must contain an "events_with_covariates_and_baseline"
+// partition (use RateEventsWithCovariatesAndBaselineStorage to build it).
+func NewMatchBaselineCovariateRateTrainingPartition(
+	storage *simulator.StateTimeStorage,
+	learningRate float64,
+	descentIterations int,
+	windowDepth int,
+) *simulator.PartitionConfig {
+	return analysis.NewLikelihoodMeanFunctionFitPartition(
+		analysis.AppliedLikelihoodMeanFunctionFit{
+			Name: "baseline_covariate_rate_fit",
+			Model: analysis.ParameterisedModelWithGradient{
+				Likelihood: &PoissonCovariateGLMLikelihood{
+					NRates:       RateEventWidth,
+					NCovs:        SubCovWidth,
+					NBaselineOff: RateEventWidth,
+				},
+				Params: simulator.NewParams(make(map[string][]float64)),
+			},
+			Gradient: analysis.LikelihoodMeanGradient{
+				Function: inference.MeanGradientFunc,
+				Width:    TotalCoeffWidth,
+			},
+			Data: analysis.DataRef{PartitionName: "events_with_covariates_and_baseline"},
+			Window: analysis.WindowedPartitions{
+				Data:  []analysis.DataRef{{PartitionName: "events_with_covariates_and_baseline"}},
+				Depth: windowDepth,
+			},
+			LearningRate:      learningRate,
+			DescentIterations: descentIterations,
+		},
+		storage,
+	)
+}
+
+// RunMatchBaselineCovariateRateTraining runs gradient descent training to
+// fit covariate effects with baseline offset and returns the output storage.
+func RunMatchBaselineCovariateRateTraining(
+	storage *simulator.StateTimeStorage,
+	initCoeffs []float64,
+	learningRate float64,
+	descentIterations int,
+	windowDepth int,
+) *simulator.StateTimeStorage {
+	fit := NewMatchBaselineCovariateRateTrainingPartition(
+		storage, learningRate, descentIterations, windowDepth,
+	)
+	fit.Params.Set("gradient_descent/init_state_values", initCoeffs)
+	fit.Params.Set("gradient_descent/ascent", []float64{1.0})
+	copy(fit.InitStateValues[len(fit.InitStateValues)-TotalCoeffWidth:], initCoeffs)
+
+	return analysis.AddPartitionsToStateTimeStorage(
+		storage,
+		[]*simulator.PartitionConfig{fit},
+		map[string]int{"events_with_covariates_and_baseline": windowDepth},
+	)
+}
+
+// ExtractFittedBaselineCovariateCoefficients returns the final fitted
+// coefficients from baseline-aware covariate training output.
+func ExtractFittedBaselineCovariateCoefficients(
+	storage *simulator.StateTimeStorage,
+) []float64 {
+	fitResults := storage.GetValues("baseline_covariate_rate_fit")
+	if len(fitResults) == 0 {
+		return nil
+	}
+	lastState := fitResults[len(fitResults)-1]
+	return lastState[len(lastState)-TotalCoeffWidth:]
 }
 
 // ExtractFittedCoefficients returns the final fitted coefficients from

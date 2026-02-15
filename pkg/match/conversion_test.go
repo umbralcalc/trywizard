@@ -42,7 +42,7 @@ func TestConversionIteration(t *testing.T) {
 			cardCoeffs := []float64{-10.0, -10.0}
 
 			results := RunMatchSimulations(
-				scoreCoeffs, cardCoeffs, convProbs, 20, 80, 5000,
+				scoreCoeffs, cardCoeffs, convProbs, nil, 20, 80, 5000,
 			)
 			for i, r := range results {
 				if r.EventTotals[IdxHomeConv] > r.EventTotals[IdxHomeTry] {

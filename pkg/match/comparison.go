@@ -57,16 +57,27 @@ func extractResult(store *simulator.StateTimeStorage) SimulationResult {
 // RunMatchSimulations runs nSims forward simulations with intercept-only
 // coefficients and returns the results. Each simulation uses seed
 // baseSeed+i for i in [0, nSims).
+// If baselineRates is non-nil, it is replayed as time-varying baseline rates.
 func RunMatchSimulations(
 	scoreCoeffs, cardCoeffs, convProbs []float64,
+	baselineRates [][]float64,
 	nSims, nSteps int,
 	baseSeed uint64,
 ) []SimulationResult {
 	results := make([]SimulationResult, nSims)
 	for i := 0; i < nSims; i++ {
 		store := simulator.NewStateTimeStorage()
-		generator := NewMatchSimulationConfigGenerator(
-			scoreCoeffs, cardCoeffs, convProbs, baseSeed+uint64(i), nSteps, 1.0,
+		var baselinePartition *simulator.PartitionConfig
+		if baselineRates != nil {
+			baselinePartition = NewBaselineRatesReplayPartition(baselineRates)
+		} else {
+			baselinePartition = NewBaselineRatesConstantPartition()
+		}
+		generator := NewMatchSimulationConfigGeneratorWithCovariates(
+			scoreCoeffs, cardCoeffs, convProbs,
+			baselinePartition,
+			NewSubCovariatesConstantPartition(make([]float64, SubCovWidth)),
+			baseSeed+uint64(i), nSteps, 1.0,
 		)
 		generator.SetSimulation(&simulator.SimulationConfig{
 			OutputCondition: &simulator.EveryStepOutputCondition{},
@@ -86,9 +97,11 @@ func RunMatchSimulations(
 }
 
 // RunMatchSimulationsWithCovariates runs nSims forward simulations with
-// covariate-aware coefficients and a substitution covariate partition.
+// covariate-aware coefficients, a substitution covariate partition, and
+// optional time-varying baseline rates.
 func RunMatchSimulationsWithCovariates(
 	scoreCoeffs, cardCoeffs, convProbs []float64,
+	baselinePartition *simulator.PartitionConfig,
 	subCovPartition *simulator.PartitionConfig,
 	nSims, nSteps int,
 	baseSeed uint64,
@@ -98,7 +111,8 @@ func RunMatchSimulationsWithCovariates(
 		store := simulator.NewStateTimeStorage()
 		generator := NewMatchSimulationConfigGeneratorWithCovariates(
 			scoreCoeffs, cardCoeffs, convProbs,
-			subCovPartition, baseSeed+uint64(i), nSteps, 1.0,
+			baselinePartition, subCovPartition,
+			baseSeed+uint64(i), nSteps, 1.0,
 		)
 		generator.SetSimulation(&simulator.SimulationConfig{
 			OutputCondition: &simulator.EveryStepOutputCondition{},

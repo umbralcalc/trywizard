@@ -18,7 +18,7 @@ func TestRunMatchSimulations(t *testing.T) {
 			nSteps := 80
 
 			results := RunMatchSimulations(
-				scoreCoeffs, cardCoeffs, convProbs, nSims, nSteps, 1000,
+				scoreCoeffs, cardCoeffs, convProbs, nil, nSims, nSteps, 1000,
 			)
 
 			if len(results) != nSims {

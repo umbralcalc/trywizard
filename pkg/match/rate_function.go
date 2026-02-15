@@ -16,32 +16,44 @@ const (
 	CardCoeffWidth  = CardRateWidth * CoeffsPerRate  // 18
 )
 
-// computeRates computes rates from coefficients and optional covariates
-// using a log-linear model. If covariates are present, each rate uses
-// CoeffsPerRate coefficients: rate_i = exp(β₀ + Σⱼ βⱼ·xⱼ).
-// Without covariates, falls back to rate_i = exp(coefficients[i]).
-func computeRates(coefficients, covariates []float64, width int) []float64 {
+// computeRates computes rates from coefficients, optional covariates,
+// and an optional baseline using a log-linear model.
+//
+// With baseline (any element > 0):
+//
+//	rate_i = baseline_i * exp(β₀ + Σⱼ βⱼ·xⱼ)
+//
+// Without baseline (all zeros or empty):
+//
+//	rate_i = exp(β₀ + Σⱼ βⱼ·xⱼ)   (with covariates)
+//	rate_i = exp(coefficients[i])   (intercept-only)
+func computeRates(coefficients, covariates, baseline []float64, width int) []float64 {
 	rates := make([]float64, width)
-	if len(covariates) > 0 && len(coefficients) == width*CoeffsPerRate {
-		for i := range rates {
+	hasBaseline := len(baseline) >= width
+	hasCovariates := len(covariates) > 0 && len(coefficients) == width*CoeffsPerRate
+	for i := range rates {
+		logRate := 0.0
+		if hasCovariates {
 			offset := i * CoeffsPerRate
-			logRate := coefficients[offset]
+			logRate = coefficients[offset]
 			for j := 0; j < len(covariates); j++ {
 				logRate += coefficients[offset+1+j] * covariates[j]
 			}
-			rates[i] = math.Exp(logRate)
+		} else if len(coefficients) > i {
+			logRate = coefficients[i]
 		}
-	} else {
-		for i := range rates {
-			rates[i] = math.Exp(coefficients[i])
+		if hasBaseline && baseline[i] > 0 {
+			rates[i] = baseline[i] * math.Exp(logRate)
+		} else {
+			rates[i] = math.Exp(logRate)
 		}
 	}
 	return rates
 }
 
-// ScoreEventRateFunction computes rates for scoring events using a
-// log-linear model. With covariates from upstream: rate_i = exp(β₀ + Σβⱼxⱼ).
-// Without covariates: rate_i = exp(coefficients[i]).
+// ScoreEventRateFunction computes rates for scoring events.
+// With baseline from upstream: rate_i = baseline_i * exp(β₀ + Σβⱼxⱼ).
+// Without baseline: rate_i = exp(β₀ + Σβⱼxⱼ).
 func ScoreEventRateFunction(
 	params *simulator.Params,
 	partitionIndex int,
@@ -50,12 +62,13 @@ func ScoreEventRateFunction(
 ) []float64 {
 	coefficients := params.Get("coefficients")
 	covariates, _ := params.GetOk("covariates")
-	return computeRates(coefficients, covariates, ScoreRateWidth)
+	baseline := extractBaseline(params, 0, ScoreRateWidth)
+	return computeRates(coefficients, covariates, baseline, ScoreRateWidth)
 }
 
-// CardEventRateFunction computes rates for card events using a
-// log-linear model. With covariates from upstream: rate_i = exp(β₀ + Σβⱼxⱼ).
-// Without covariates: rate_i = exp(coefficients[i]).
+// CardEventRateFunction computes rates for card events.
+// With baseline from upstream: rate_i = baseline_i * exp(β₀ + Σβⱼxⱼ).
+// Without baseline: rate_i = exp(β₀ + Σβⱼxⱼ).
 func CardEventRateFunction(
 	params *simulator.Params,
 	partitionIndex int,
@@ -64,7 +77,19 @@ func CardEventRateFunction(
 ) []float64 {
 	coefficients := params.Get("coefficients")
 	covariates, _ := params.GetOk("covariates")
-	return computeRates(coefficients, covariates, CardRateWidth)
+	baseline := extractBaseline(params, ScoreRateWidth, CardRateWidth)
+	return computeRates(coefficients, covariates, baseline, CardRateWidth)
+}
+
+// extractBaseline reads the full baseline_rates vector from params and
+// extracts the slice starting at offset with the given width. Returns nil
+// if no baseline is available.
+func extractBaseline(params *simulator.Params, offset, width int) []float64 {
+	full, ok := params.GetOk("baseline")
+	if !ok || len(full) < offset+width {
+		return nil
+	}
+	return full[offset : offset+width]
 }
 
 // NewScoreRatesPartition creates a partition that computes scoring event

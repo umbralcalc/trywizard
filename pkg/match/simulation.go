@@ -6,7 +6,9 @@ import (
 )
 
 // NewMatchSimulationPartitionsWithCovariates returns the partition configs
-// for a forward match simulation with substitution covariates. 7 partitions:
+// for a forward match simulation with substitution covariates and optional
+// time-varying baseline rates. 8 partitions:
+//   - baseline_rates: smoothed baseline rates (replayed or zero-constant)
 //   - sub_covariates: substitution covariate data (replayed or constant)
 //   - score_rates: log-linear rate model for scoring events (width 4)
 //   - card_rates: log-linear rate model for card events (width 2)
@@ -22,17 +24,20 @@ func NewMatchSimulationPartitionsWithCovariates(
 	scoreCoefficients []float64,
 	cardCoefficients []float64,
 	conversionProbabilities []float64,
+	baselinePartition *simulator.PartitionConfig,
 	subCovPartition *simulator.PartitionConfig,
 	seed uint64,
 ) []*simulator.PartitionConfig {
 	scoreRates := NewScoreRatesPartition(scoreCoefficients)
 	scoreRates.ParamsFromUpstream = map[string]simulator.NamedUpstreamConfig{
 		"covariates": {Upstream: "sub_covariates"},
+		"baseline":   {Upstream: "baseline_rates"},
 	}
 
 	cardRates := NewCardRatesPartition(cardCoefficients)
 	cardRates.ParamsFromUpstream = map[string]simulator.NamedUpstreamConfig{
 		"covariates": {Upstream: "sub_covariates"},
+		"baseline":   {Upstream: "baseline_rates"},
 	}
 
 	scoreEvents := &simulator.PartitionConfig{
@@ -79,6 +84,7 @@ func NewMatchSimulationPartitionsWithCovariates(
 	matchState := NewMatchStatePartition()
 
 	return []*simulator.PartitionConfig{
+		baselinePartition,
 		subCovPartition,
 		scoreRates,
 		cardRates,
@@ -90,8 +96,8 @@ func NewMatchSimulationPartitionsWithCovariates(
 }
 
 // NewMatchSimulationPartitions returns the partition configs for a forward
-// match simulation without covariates. Backward-compatible wrapper that
-// uses a zero-constant covariate partition.
+// match simulation without covariates or baseline. Backward-compatible
+// wrapper that uses zero-constant covariate and baseline partitions.
 //
 // scoreCoefficients has length ScoreRateWidth (4): intercept-only.
 // cardCoefficients has length CardRateWidth (2): intercept-only.
@@ -101,19 +107,22 @@ func NewMatchSimulationPartitions(
 	conversionProbabilities []float64,
 	seed uint64,
 ) []*simulator.PartitionConfig {
+	baseline := NewBaselineRatesConstantPartition()
 	subCov := NewSubCovariatesConstantPartition(make([]float64, SubCovWidth))
 	return NewMatchSimulationPartitionsWithCovariates(
 		scoreCoefficients, cardCoefficients, conversionProbabilities,
-		subCov, seed,
+		baseline, subCov, seed,
 	)
 }
 
 // NewMatchSimulationConfigGeneratorWithCovariates creates a ConfigGenerator
-// for a full match simulation with substitution covariates.
+// for a full match simulation with substitution covariates and optional
+// time-varying baseline rates.
 func NewMatchSimulationConfigGeneratorWithCovariates(
 	scoreCoefficients []float64,
 	cardCoefficients []float64,
 	conversionProbabilities []float64,
+	baselinePartition *simulator.PartitionConfig,
 	subCovPartition *simulator.PartitionConfig,
 	seed uint64,
 	numSteps int,
@@ -131,7 +140,7 @@ func NewMatchSimulationConfigGeneratorWithCovariates(
 	})
 	for _, partition := range NewMatchSimulationPartitionsWithCovariates(
 		scoreCoefficients, cardCoefficients, conversionProbabilities,
-		subCovPartition, seed,
+		baselinePartition, subCovPartition, seed,
 	) {
 		generator.SetPartition(partition)
 	}
@@ -139,7 +148,7 @@ func NewMatchSimulationConfigGeneratorWithCovariates(
 }
 
 // NewMatchSimulationConfigGenerator creates a ConfigGenerator for a full
-// match simulation without covariates. Backward-compatible wrapper.
+// match simulation without covariates or baseline. Backward-compatible wrapper.
 func NewMatchSimulationConfigGenerator(
 	scoreCoefficients []float64,
 	cardCoefficients []float64,
@@ -148,9 +157,10 @@ func NewMatchSimulationConfigGenerator(
 	numSteps int,
 	stepSize float64,
 ) *simulator.ConfigGenerator {
+	baseline := NewBaselineRatesConstantPartition()
 	subCov := NewSubCovariatesConstantPartition(make([]float64, SubCovWidth))
 	return NewMatchSimulationConfigGeneratorWithCovariates(
 		scoreCoefficients, cardCoefficients, conversionProbabilities,
-		subCov, seed, numSteps, stepSize,
+		baseline, subCov, seed, numSteps, stepSize,
 	)
 }

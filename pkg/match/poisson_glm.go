@@ -24,10 +24,11 @@ import (
 //
 // The gradient returned by EvaluateLogLikeMeanGrad is w.r.t. β (not μ).
 type PoissonCovariateGLMLikelihood struct {
-	Src    rand.Source
-	NRates int
-	NCovs  int
-	beta   *mat.VecDense
+	Src          rand.Source
+	NRates       int
+	NCovs        int
+	NBaselineOff int // number of baseline offset values appended after covariates (0 = no baseline)
+	beta         *mat.VecDense
 }
 
 func (p *PoissonCovariateGLMLikelihood) SetSeed(
@@ -56,7 +57,7 @@ func (p *PoissonCovariateGLMLikelihood) coeffsPerRate() int {
 }
 
 func (p *PoissonCovariateGLMLikelihood) computeRate(
-	rateIdx int, covariates []float64,
+	rateIdx int, covariates, baseline []float64,
 ) float64 {
 	cpr := p.coeffsPerRate()
 	offset := rateIdx * cpr
@@ -64,17 +65,32 @@ func (p *PoissonCovariateGLMLikelihood) computeRate(
 	for j := 0; j < p.NCovs; j++ {
 		logRate += p.beta.AtVec(offset+1+j) * covariates[j]
 	}
-	return math.Exp(logRate)
+	rate := math.Exp(logRate)
+	if len(baseline) > rateIdx && baseline[rateIdx] > 0 {
+		rate *= baseline[rateIdx]
+	}
+	return rate
+}
+
+// extractDataParts splits a data row into counts, covariates, and baseline.
+func (p *PoissonCovariateGLMLikelihood) extractDataParts(
+	data []float64,
+) (counts, covariates, baseline []float64) {
+	counts = data[:p.NRates]
+	covariates = data[p.NRates : p.NRates+p.NCovs]
+	if p.NBaselineOff > 0 {
+		baseline = data[p.NRates+p.NCovs : p.NRates+p.NCovs+p.NBaselineOff]
+	}
+	return
 }
 
 func (p *PoissonCovariateGLMLikelihood) EvaluateLogLike(
 	data []float64,
 ) float64 {
-	counts := data[:p.NRates]
-	covariates := data[p.NRates:]
+	counts, covariates, baseline := p.extractDataParts(data)
 	ll := 0.0
 	for i := 0; i < p.NRates; i++ {
-		mu := p.computeRate(i, covariates)
+		mu := p.computeRate(i, covariates, baseline)
 		if mu > 0 {
 			ll += counts[i]*math.Log(mu) - mu
 		}
@@ -83,12 +99,13 @@ func (p *PoissonCovariateGLMLikelihood) EvaluateLogLike(
 }
 
 func (p *PoissonCovariateGLMLikelihood) GenerateNewSamples() []float64 {
-	// Generate Poisson samples from current rates (zero covariates).
-	samples := make([]float64, p.NRates+p.NCovs)
+	// Generate Poisson samples from current rates (zero covariates, no baseline).
+	totalWidth := p.NRates + p.NCovs + p.NBaselineOff
+	samples := make([]float64, totalWidth)
 	covs := make([]float64, p.NCovs)
 	rng := rand.New(p.Src)
 	for i := 0; i < p.NRates; i++ {
-		mu := p.computeRate(i, covs)
+		mu := p.computeRate(i, covs, nil)
 		// Simple Poisson sampling via inverse transform.
 		L := math.Exp(-mu)
 		k := 0
@@ -114,12 +131,11 @@ func (p *PoissonCovariateGLMLikelihood) GenerateNewSamples() []float64 {
 func (p *PoissonCovariateGLMLikelihood) EvaluateLogLikeMeanGrad(
 	data []float64,
 ) []float64 {
-	counts := data[:p.NRates]
-	covariates := data[p.NRates:]
+	counts, covariates, baseline := p.extractDataParts(data)
 	cpr := p.coeffsPerRate()
 	grad := make([]float64, p.NRates*cpr)
 	for i := 0; i < p.NRates; i++ {
-		mu := p.computeRate(i, covariates)
+		mu := p.computeRate(i, covariates, baseline)
 		residual := counts[i] - mu
 		offset := i * cpr
 		grad[offset] = residual // intercept (x_0 = 1)
