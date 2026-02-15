@@ -190,6 +190,45 @@ func TestTransformEventsWithCovariates(t *testing.T) {
 	})
 }
 
+func TestListGames(t *testing.T) {
+	t.Run("test listing all games from players.csv", func(t *testing.T) {
+		games, err := ListGames("../../dat/players.csv")
+		if err != nil {
+			t.Fatalf("failed to list games: %v", err)
+		}
+		if len(games) == 0 {
+			t.Fatal("expected non-empty games list")
+		}
+		t.Logf("found %d games", len(games))
+
+		// All game IDs should be unique.
+		seen := make(map[int]bool)
+		for _, g := range games {
+			if seen[g.GameID] {
+				t.Errorf("duplicate game ID: %d", g.GameID)
+			}
+			seen[g.GameID] = true
+			if g.HomeTeamID == 0 {
+				t.Errorf("game %d: home team ID is 0", g.GameID)
+			}
+		}
+
+		// Known game 600009 should be present with home team 25900.
+		found := false
+		for _, g := range games {
+			if g.GameID == 600009 {
+				found = true
+				if g.HomeTeamID != 25900 {
+					t.Errorf("game 600009: expected home team 25900, got %d", g.HomeTeamID)
+				}
+			}
+		}
+		if !found {
+			t.Error("game 600009 not found in games list")
+		}
+	})
+}
+
 func TestComputeConversionProbabilities(t *testing.T) {
 	t.Run("test conversion probabilities for known match", func(t *testing.T) {
 		storage, err := TransformEventsToStateTimeStorage(

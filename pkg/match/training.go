@@ -1,6 +1,7 @@
 package match
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/umbralcalc/stochadex/pkg/analysis"
@@ -408,4 +409,95 @@ func ExtractFittedCoefficients(
 	}
 	lastState := fitResults[len(fitResults)-1]
 	return lastState[len(lastState)-TotalCoeffWidth:]
+}
+
+// BuildMultiGameBaselineCovariateStorage loads all games from the data files,
+// concatenates their [rate_event_counts, sub_covariates, baseline_rates] rows
+// into a single StateTimeStorage for joint training. Time is made monotonic
+// across games by offsetting each game's minutes.
+func BuildMultiGameBaselineCovariateStorage(
+	eventsPath string,
+	playersPath string,
+	baselineRates [][]float64,
+) (*simulator.StateTimeStorage, error) {
+	games, err := ListGames(playersPath)
+	if err != nil {
+		return nil, fmt.Errorf("listing games: %w", err)
+	}
+
+	combined := simulator.NewStateTimeStorage()
+	timeOffset := 0.0
+
+	for _, game := range games {
+		storage, err := TransformEventsWithCovariates(
+			eventsPath, playersPath, game.GameID, game.HomeTeamID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("game %d: %w", game.GameID, err)
+		}
+
+		events := storage.GetValues("events")
+		covariates := storage.GetValues("sub_covariates")
+		times := storage.GetTimes()
+
+		for i, row := range events {
+			combRow := make([]float64, BaselineCovariateDataWidth)
+			for j, idx := range rateEventIndices {
+				combRow[j] = row[idx]
+			}
+			if i < len(covariates) {
+				copy(combRow[RateEventWidth:], covariates[i])
+			}
+			minute := int(times[i])
+			if minute < len(baselineRates) {
+				copy(combRow[RateEventWidth+SubCovWidth:], baselineRates[minute])
+			}
+			combined.ConcurrentAppend(
+				"events_with_covariates_and_baseline",
+				timeOffset+times[i],
+				combRow,
+			)
+		}
+
+		if len(times) > 0 {
+			timeOffset += times[len(times)-1] + 1.0
+		}
+	}
+
+	return combined, nil
+}
+
+// RunMultiGameBaselineCovariateTraining trains the covariate rate model
+// across all games jointly using baseline-offset Poisson GLM gradient descent.
+// Returns the fitted coefficients (length TotalCoeffWidth = 54).
+func RunMultiGameBaselineCovariateTraining(
+	eventsPath string,
+	playersPath string,
+	learningRate float64,
+	descentIterations int,
+	windowDepth int,
+) ([]float64, error) {
+	baselineRates, err := ComputeSmoothedBaselineRates(eventsPath)
+	if err != nil {
+		return nil, fmt.Errorf("computing baseline rates: %w", err)
+	}
+
+	storage, err := BuildMultiGameBaselineCovariateStorage(
+		eventsPath, playersPath, baselineRates,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("building multi-game storage: %w", err)
+	}
+
+	initCoeffs := InitCoefficientsWithBaseline()
+
+	outputStorage := RunMatchBaselineCovariateRateTraining(
+		storage, initCoeffs, learningRate, descentIterations, windowDepth,
+	)
+
+	coeffs := ExtractFittedBaselineCovariateCoefficients(outputStorage)
+	if coeffs == nil {
+		return nil, fmt.Errorf("training produced no output")
+	}
+	return coeffs, nil
 }

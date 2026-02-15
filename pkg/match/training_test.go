@@ -170,6 +170,92 @@ func TestMatchRateTraining(t *testing.T) {
 	)
 }
 
+func TestBuildMultiGameBaselineCovariateStorage(t *testing.T) {
+	t.Run(
+		"test that multi-game storage concatenates correctly",
+		func(t *testing.T) {
+			baselineRates, err := ComputeSmoothedBaselineRates("../../dat/events.csv")
+			if err != nil {
+				t.Fatalf("failed to compute baseline: %v", err)
+			}
+
+			storage, err := BuildMultiGameBaselineCovariateStorage(
+				"../../dat/events.csv", "../../dat/players.csv", baselineRates,
+			)
+			if err != nil {
+				t.Fatalf("failed to build multi-game storage: %v", err)
+			}
+
+			data := storage.GetValues("events_with_covariates_and_baseline")
+			times := storage.GetTimes()
+			if len(data) == 0 {
+				t.Fatal("expected non-empty data")
+			}
+			t.Logf("multi-game storage: %d rows", len(data))
+
+			// Should have more rows than a single game (~80 minutes).
+			if len(data) < 100 {
+				t.Errorf("expected many rows across 30 games, got %d", len(data))
+			}
+
+			// All rows should have correct width.
+			for i, row := range data {
+				if len(row) != BaselineCovariateDataWidth {
+					t.Errorf("row %d: expected width %d, got %d",
+						i, BaselineCovariateDataWidth, len(row))
+				}
+			}
+
+			// Times should be monotonically non-decreasing.
+			for i := 1; i < len(times); i++ {
+				if times[i] < times[i-1] {
+					t.Errorf("time decreased at index %d: %f -> %f",
+						i, times[i-1], times[i])
+				}
+			}
+		},
+	)
+}
+
+func TestRunMultiGameBaselineCovariateTraining(t *testing.T) {
+	t.Run(
+		"test that multi-game training produces finite coefficients",
+		func(t *testing.T) {
+			coeffs, err := RunMultiGameBaselineCovariateTraining(
+				"../../dat/events.csv",
+				"../../dat/players.csv",
+				0.0001,
+				5,
+				10,
+			)
+			if err != nil {
+				t.Fatalf("training failed: %v", err)
+			}
+			if len(coeffs) != TotalCoeffWidth {
+				t.Fatalf("expected %d coefficients, got %d", TotalCoeffWidth, len(coeffs))
+			}
+
+			// All coefficients should be finite.
+			for i, c := range coeffs {
+				if math.IsNaN(c) || math.IsInf(c, 0) {
+					t.Errorf("coeff[%d] is NaN/Inf: %f", i, c)
+				}
+			}
+
+			t.Logf("fitted coefficients (first rate):")
+			covLabels := []string{"intercept", "home_front", "home_back", "home_halves", "home_outside",
+				"away_front", "away_back", "away_halves", "away_outside"}
+			rateLabels := []string{"home_try", "away_try", "home_penalty", "away_penalty", "home_yellow", "away_yellow"}
+			for i := 0; i < RateEventWidth; i++ {
+				t.Logf("  %s:", rateLabels[i])
+				for j := 0; j < CoeffsPerRate; j++ {
+					t.Logf("    %-14s %+.6f", covLabels[j], coeffs[i*CoeffsPerRate+j])
+				}
+			}
+		},
+	)
+}
+
 func TestMatchCovariateRateTraining(t *testing.T) {
 	t.Run(
 		"test that covariate-aware gradient descent training runs",

@@ -308,6 +308,62 @@ func BuildSubstitutionCovariates(
 	return covariates, nil
 }
 
+// GameInfo holds the metadata for a single game needed for multi-game training.
+type GameInfo struct {
+	GameID     int
+	HomeTeamID int
+}
+
+// ListGames reads players.csv and returns a GameInfo for every unique game,
+// identifying the home team from the home_away column.
+func ListGames(playersPath string) ([]GameInfo, error) {
+	f, err := os.Open(playersPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open %s: %w", playersPath, err)
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse CSV %s: %w", playersPath, err)
+	}
+	if len(records) < 2 {
+		return nil, fmt.Errorf("CSV %s has no data rows", playersPath)
+	}
+
+	header := records[0]
+	colIdx := make(map[string]int)
+	for i, h := range header {
+		colIdx[h] = i
+	}
+
+	// Collect home team ID per game.
+	homeTeams := make(map[int]int) // gameID → homeTeamID
+	for _, row := range records[1:] {
+		gid, err := strconv.Atoi(row[colIdx["game_id"]])
+		if err != nil {
+			continue
+		}
+		if _, seen := homeTeams[gid]; seen {
+			continue
+		}
+		if strings.ToLower(row[colIdx["home_away"]]) == "home" {
+			tid, err := strconv.Atoi(row[colIdx["team_id"]])
+			if err != nil {
+				continue
+			}
+			homeTeams[gid] = tid
+		}
+	}
+
+	games := make([]GameInfo, 0, len(homeTeams))
+	for gid, tid := range homeTeams {
+		games = append(games, GameInfo{GameID: gid, HomeTeamID: tid})
+	}
+	return games, nil
+}
+
 // TransformEventsWithCovariates extends TransformEventsToStateTimeStorage
 // by also adding substitution covariates as a "sub_covariates" partition
 // in the StateTimeStorage.
