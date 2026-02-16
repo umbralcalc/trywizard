@@ -135,3 +135,56 @@ func TestComputeEventTotals(t *testing.T) {
 		},
 	)
 }
+
+func TestRunStrategySimulations(t *testing.T) {
+	t.Run(
+		"test that strategy simulations produce valid results and win probs",
+		func(t *testing.T) {
+			baselineRates, err := ComputeSmoothedBaselineRates("../../dat/events.csv")
+			if err != nil {
+				t.Fatalf("failed to compute baseline: %v", err)
+			}
+
+			// Use some plausible coefficients (small effects around zero
+			// since baseline provides the rate level).
+			scoreCoeffs := make([]float64, ScoreCoeffWidth)
+			cardCoeffs := make([]float64, CardCoeffWidth)
+			convProbs := []float64{0.7, 0.65}
+
+			strategy := &SubstitutionStrategy{
+				HomeSubs: [NumPositionGroups]int{50, 55, 60, 65},
+				AwaySubs: [NumPositionGroups]int{48, 52, 0, 58},
+			}
+
+			nSims := 20
+			nSteps := 80
+			results := RunStrategySimulations(
+				scoreCoeffs, cardCoeffs, convProbs,
+				baselineRates, strategy,
+				nSims, nSteps, 3000,
+			)
+
+			if len(results) != nSims {
+				t.Fatalf("expected %d results, got %d", nSims, len(results))
+			}
+
+			for i, r := range results {
+				if len(r.ScoreTrajectory) == 0 {
+					t.Errorf("sim %d: empty trajectory", i)
+				}
+				if len(r.EventTotals) != EventWidth {
+					t.Errorf("sim %d: expected %d event totals, got %d",
+						i, EventWidth, len(r.EventTotals))
+				}
+			}
+
+			probs := ComputeWinProbabilities(results)
+			total := probs.HomeWin + probs.Draw + probs.AwayWin
+			if !scalar.EqualWithinAbs(total, 1.0, 1e-10) {
+				t.Errorf("probabilities don't sum to 1: %f", total)
+			}
+			t.Logf("win probs: home=%.2f draw=%.2f away=%.2f",
+				probs.HomeWin, probs.Draw, probs.AwayWin)
+		},
+	)
+}

@@ -224,9 +224,9 @@ func TestRunMultiGameBaselineCovariateTraining(t *testing.T) {
 			coeffs, err := RunMultiGameBaselineCovariateTraining(
 				"../../dat/events.csv",
 				"../../dat/players.csv",
-				0.0001,
-				5,
+				0.1,
 				10,
+				50,
 			)
 			if err != nil {
 				t.Fatalf("training failed: %v", err)

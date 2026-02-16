@@ -190,6 +190,85 @@ func TestTransformEventsWithCovariates(t *testing.T) {
 	})
 }
 
+func TestSubstitutionStrategy(t *testing.T) {
+	t.Run("generate covariates from strategy", func(t *testing.T) {
+		strategy := &SubstitutionStrategy{
+			HomeSubs: [NumPositionGroups]int{50, 55, 60, 65},
+			AwaySubs: [NumPositionGroups]int{48, 52, 0, 58},
+		}
+
+		if strategy.TotalSubs() != 7 {
+			t.Errorf("expected 7 total subs, got %d", strategy.TotalSubs())
+		}
+
+		covariates := strategy.GenerateCovariates(80)
+		if len(covariates) != 80 {
+			t.Fatalf("expected 80 rows, got %d", len(covariates))
+		}
+
+		// Before any sub, all zeros.
+		for j, v := range covariates[0] {
+			if v != 0.0 {
+				t.Errorf("minute 0 cov[%d] = %f, expected 0", j, v)
+			}
+		}
+
+		// At minute 47, still no subs.
+		for j, v := range covariates[47] {
+			if v != 0.0 {
+				t.Errorf("minute 47 cov[%d] = %f, expected 0", j, v)
+			}
+		}
+
+		// At minute 50, home front row subbed, away front row subbed (at 48).
+		if covariates[50][GrpFrontRow] != 1.0 {
+			t.Error("expected home front row subbed at minute 50")
+		}
+		if covariates[50][NumPositionGroups+GrpFrontRow] != 1.0 {
+			t.Error("expected away front row subbed at minute 50")
+		}
+		// Home back row not yet (sub at 55).
+		if covariates[50][GrpBackRow] != 0.0 {
+			t.Error("expected home back row NOT subbed at minute 50")
+		}
+
+		// At minute 65, all home groups subbed.
+		for g := 0; g < NumPositionGroups; g++ {
+			if covariates[65][g] != 1.0 {
+				t.Errorf("expected home group %d subbed at minute 65", g)
+			}
+		}
+		// Away halves never subbed (set to 0).
+		if covariates[79][NumPositionGroups+GrpHalves] != 0.0 {
+			t.Error("expected away halves NOT subbed")
+		}
+
+		// Covariates should be monotonically non-decreasing.
+		for j := 0; j < SubCovWidth; j++ {
+			for i := 1; i < len(covariates); i++ {
+				if covariates[i][j] < covariates[i-1][j] {
+					t.Errorf("cov[%d] decreased at minute %d", j, i)
+				}
+			}
+		}
+	})
+
+	t.Run("no subs strategy produces all zeros", func(t *testing.T) {
+		strategy := &SubstitutionStrategy{}
+		if strategy.TotalSubs() != 0 {
+			t.Errorf("expected 0 total subs, got %d", strategy.TotalSubs())
+		}
+		covariates := strategy.GenerateCovariates(80)
+		for minute, row := range covariates {
+			for j, v := range row {
+				if v != 0.0 {
+					t.Errorf("minute %d cov[%d] = %f, expected 0", minute, j, v)
+				}
+			}
+		}
+	})
+}
+
 func TestListGames(t *testing.T) {
 	t.Run("test listing all games from players.csv", func(t *testing.T) {
 		games, err := ListGames("../../dat/players.csv")

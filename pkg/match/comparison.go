@@ -157,3 +157,55 @@ func ComputeEventTotals(storage *simulator.StateTimeStorage) []float64 {
 	}
 	return totals
 }
+
+// WinProbabilities holds the estimated probabilities of each outcome.
+type WinProbabilities struct {
+	HomeWin float64
+	Draw    float64
+	AwayWin float64
+}
+
+// ComputeWinProbabilities computes win/draw/loss probabilities from
+// simulation results by counting final score outcomes.
+func ComputeWinProbabilities(results []SimulationResult) WinProbabilities {
+	var homeWins, draws, awayWins int
+	for _, r := range results {
+		if len(r.ScoreTrajectory) == 0 {
+			continue
+		}
+		final := r.ScoreTrajectory[len(r.ScoreTrajectory)-1]
+		switch {
+		case final.Home > final.Away:
+			homeWins++
+		case final.Home < final.Away:
+			awayWins++
+		default:
+			draws++
+		}
+	}
+	n := float64(len(results))
+	return WinProbabilities{
+		HomeWin: float64(homeWins) / n,
+		Draw:    float64(draws) / n,
+		AwayWin: float64(awayWins) / n,
+	}
+}
+
+// RunStrategySimulations runs nSims forward simulations with a given
+// substitution strategy, baseline rates, and trained coefficients.
+// Returns the simulation results.
+func RunStrategySimulations(
+	scoreCoeffs, cardCoeffs, convProbs []float64,
+	baselineRates [][]float64,
+	strategy *SubstitutionStrategy,
+	nSims, nSteps int,
+	baseSeed uint64,
+) []SimulationResult {
+	baselinePartition := NewBaselineRatesReplayPartition(baselineRates)
+	subCovPartition := NewSubCovariatesFromStrategyPartition(strategy, nSteps)
+	return RunMatchSimulationsWithCovariates(
+		scoreCoeffs, cardCoeffs, convProbs,
+		baselinePartition, subCovPartition,
+		nSims, nSteps, baseSeed,
+	)
+}

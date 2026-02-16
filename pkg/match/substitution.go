@@ -35,3 +35,64 @@ func NewSubCovariatesConstantPartition(values []float64) *simulator.PartitionCon
 		Seed:              0,
 	}
 }
+
+// SubstitutionStrategy defines when each position group gets substituted.
+// Each entry is the minute at which to substitute that group.
+// A value of 0 means "don't substitute this group".
+type SubstitutionStrategy struct {
+	// HomeSubs[i] = minute at which to sub home position group i.
+	// [front_row, back_row, halves, outside_backs]
+	HomeSubs [NumPositionGroups]int
+	// AwaySubs[i] = minute at which to sub away position group i.
+	AwaySubs [NumPositionGroups]int
+}
+
+// TotalSubs returns the total number of substitutions in this strategy
+// (entries > 0).
+func (s *SubstitutionStrategy) TotalSubs() int {
+	n := 0
+	for _, m := range s.HomeSubs {
+		if m > 0 {
+			n++
+		}
+	}
+	for _, m := range s.AwaySubs {
+		if m > 0 {
+			n++
+		}
+	}
+	return n
+}
+
+// GenerateCovariates converts the strategy into a per-minute binary
+// covariate matrix for nSteps minutes (rows 0..nSteps-1).
+// Layout matches BuildSubstitutionCovariates:
+// [home_front_row, home_back_row, home_halves, home_outside_backs,
+//
+//	away_front_row, away_back_row, away_halves, away_outside_backs]
+func (s *SubstitutionStrategy) GenerateCovariates(nSteps int) [][]float64 {
+	covariates := make([][]float64, nSteps)
+	for t := 0; t < nSteps; t++ {
+		row := make([]float64, SubCovWidth)
+		for g := 0; g < NumPositionGroups; g++ {
+			if s.HomeSubs[g] > 0 && t >= s.HomeSubs[g] {
+				row[g] = 1.0
+			}
+			if s.AwaySubs[g] > 0 && t >= s.AwaySubs[g] {
+				row[NumPositionGroups+g] = 1.0
+			}
+		}
+		covariates[t] = row
+	}
+	return covariates
+}
+
+// NewSubCovariatesFromStrategyPartition creates a partition that replays
+// covariates generated from a SubstitutionStrategy. The covariate matrix
+// has nSteps+1 rows to cover the initial state plus all simulation steps.
+func NewSubCovariatesFromStrategyPartition(
+	strategy *SubstitutionStrategy,
+	nSteps int,
+) *simulator.PartitionConfig {
+	return NewSubCovariatesReplayPartition(strategy.GenerateCovariates(nSteps + 1))
+}
