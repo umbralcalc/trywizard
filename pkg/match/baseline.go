@@ -3,6 +3,7 @@ package match
 import (
 	"encoding/csv"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -11,32 +12,85 @@ import (
 	"github.com/umbralcalc/stochadex/pkg/simulator"
 )
 
+const (
+	// pilotBandwidth is the half-width used in the first pass to estimate
+	// local variance at each minute.
+	pilotBandwidth = 3
+	// minBandwidth and maxBandwidth clamp the adaptive half-width.
+	minBandwidth = 3
+	maxBandwidth = 10
+	// bandwidthScale controls how strongly local variance widens the kernel.
+	// Adaptive half-width = clamp(bandwidthScale * localStdDev, min, max).
+	bandwidthScale = 4.0
+)
+
+// computeAdaptiveKernelRanges returns a per-minute [L, U] smoothing range
+// that adapts to local data variability. Where the raw counts fluctuate
+// more, the window is wider. The kernel is clamped at each half boundary.
+func computeAdaptiveKernelRanges(rawCounts [][]float64, halfBoundary int) []smoothingKernelRange {
+	n := len(rawCounts)
+	nEvt := len(rawCounts[0])
+	ranges := make([]smoothingKernelRange, n)
+
+	for t := 0; t < n; t++ {
+		// Determine which half this minute belongs to.
+		halfL, halfU := 0, halfBoundary
+		if t > halfBoundary {
+			halfL, halfU = halfBoundary+1, n-1
+		}
+
+		// Pilot pass: compute local mean and variance over a small fixed window.
+		pL := t - pilotBandwidth
+		if pL < halfL {
+			pL = halfL
+		}
+		pU := t + pilotBandwidth
+		if pU > halfU {
+			pU = halfU
+		}
+		maxVar := 0.0
+		for evtIdx := 0; evtIdx < nEvt; evtIdx++ {
+			sum, sumSq := 0.0, 0.0
+			cnt := 0
+			for m := pL; m <= pU; m++ {
+				v := rawCounts[m][evtIdx]
+				sum += v
+				sumSq += v * v
+				cnt++
+			}
+			if cnt > 1 {
+				mean := sum / float64(cnt)
+				variance := sumSq/float64(cnt) - mean*mean
+				if variance > maxVar {
+					maxVar = variance
+				}
+			}
+		}
+
+		// Adaptive half-width: wider where variance is higher.
+		hw := int(math.Round(bandwidthScale * math.Sqrt(maxVar)))
+		if hw < minBandwidth {
+			hw = minBandwidth
+		}
+		if hw > maxBandwidth {
+			hw = maxBandwidth
+		}
+
+		l := t - hw
+		if l < halfL {
+			l = halfL
+		}
+		u := t + hw
+		if u > halfU {
+			u = halfU
+		}
+		ranges[t] = smoothingKernelRange{L: l, U: u}
+	}
+	return ranges
+}
+
 // smoothingKernelRange defines a [L, U] minute range for averaging.
 type smoothingKernelRange struct{ L, U int }
-
-// matchMinuteSmoothingKernel maps each match minute to the range of
-// minutes used for computing a smoothed average. The 5-minute window
-// is clamped at half boundaries (0-40 and 41-84).
-var matchMinuteSmoothingKernel = map[int]smoothingKernelRange{
-	0: {0, 5}, 1: {0, 5}, 2: {0, 5}, 3: {1, 6}, 4: {2, 7},
-	5: {3, 8}, 6: {4, 9}, 7: {5, 10}, 8: {6, 11}, 9: {7, 12},
-	10: {8, 13}, 11: {9, 14}, 12: {10, 15}, 13: {11, 16}, 14: {12, 17},
-	15: {13, 18}, 16: {14, 19}, 17: {15, 20}, 18: {16, 21}, 19: {17, 22},
-	20: {18, 23}, 21: {19, 24}, 22: {20, 25}, 23: {21, 26}, 24: {22, 27},
-	25: {23, 28}, 26: {24, 29}, 27: {25, 30}, 28: {26, 31}, 29: {27, 32},
-	30: {28, 33}, 31: {29, 34}, 32: {30, 35}, 33: {31, 36}, 34: {32, 37},
-	35: {33, 38}, 36: {34, 39}, 37: {35, 40}, 38: {35, 40}, 39: {35, 40},
-	40: {35, 40},
-	41: {41, 46}, 42: {41, 46}, 43: {41, 46}, 44: {42, 47}, 45: {43, 48},
-	46: {44, 49}, 47: {45, 50}, 48: {46, 51}, 49: {47, 52}, 50: {48, 53},
-	51: {49, 54}, 52: {50, 55}, 53: {51, 56}, 54: {52, 57}, 55: {53, 58},
-	56: {54, 59}, 57: {55, 60}, 58: {56, 61}, 59: {57, 62}, 60: {58, 63},
-	61: {59, 64}, 62: {60, 65}, 63: {61, 66}, 64: {62, 67}, 65: {63, 68},
-	66: {64, 69}, 67: {65, 70}, 68: {66, 71}, 69: {67, 72}, 70: {68, 73},
-	71: {69, 74}, 72: {70, 75}, 73: {71, 76}, 74: {72, 77}, 75: {73, 78},
-	76: {74, 79}, 77: {75, 80}, 78: {76, 81}, 79: {77, 82}, 80: {78, 83},
-	81: {79, 84}, 82: {79, 84}, 83: {79, 84}, 84: {79, 84},
-}
 
 // rateEventTypes are the event type strings that map to rate-based events.
 // Order matches rateEventIndices pairs: [home, away] for each.
@@ -121,14 +175,14 @@ func ComputeSmoothedBaselineRates(eventsPath string) ([][]float64, error) {
 		}
 	}
 
+	// Compute adaptive smoothing kernel ranges from the raw data.
+	kernelRanges := computeAdaptiveKernelRanges(rawCounts, 40)
+
 	// Apply smoothing kernel and convert to per-game rates split home/away.
 	rates := make([][]float64, maxMinute+1)
 	for t := 0; t <= maxMinute; t++ {
 		row := make([]float64, RateEventWidth)
-		kernel, exists := matchMinuteSmoothingKernel[t]
-		if !exists {
-			kernel = smoothingKernelRange{L: t, U: t}
-		}
+		kernel := kernelRanges[t]
 		for evtIdx, evtType := range rateEventTypes {
 			sum := 0.0
 			count := 0
