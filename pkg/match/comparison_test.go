@@ -140,7 +140,7 @@ func TestRunStrategySimulations(t *testing.T) {
 	t.Run(
 		"test that strategy simulations produce valid results and win probs",
 		func(t *testing.T) {
-			baselineRates, err := ComputeSmoothedBaselineRates("../../dat/events.csv")
+			baselineRates, err := ComputeSmoothedBaselineRates("../../dat/events.csv", "../../dat/players.csv")
 			if err != nil {
 				t.Fatalf("failed to compute baseline: %v", err)
 			}

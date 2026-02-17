@@ -3,15 +3,13 @@ package match
 import (
 	"math"
 	"testing"
-
-	"gonum.org/v1/gonum/floats/scalar"
 )
 
 func TestComputeSmoothedBaselineRates(t *testing.T) {
 	t.Run(
 		"test that smoothed baseline rates have correct structure",
 		func(t *testing.T) {
-			rates, err := ComputeSmoothedBaselineRates("../../dat/events.csv")
+			rates, err := ComputeSmoothedBaselineRates("../../dat/events.csv", "../../dat/players.csv")
 			if err != nil {
 				t.Fatalf("failed to compute baseline rates: %v", err)
 			}
@@ -31,20 +29,21 @@ func TestComputeSmoothedBaselineRates(t *testing.T) {
 				}
 			}
 
-			// Home and away rates should be equal (symmetric split).
-			for minute, row := range rates {
-				if !scalar.EqualWithinAbs(row[0], row[1], 1e-10) {
-					t.Errorf("minute %d: home_try (%f) != away_try (%f)",
-						minute, row[0], row[1])
+			// Home and away rates are fitted separately and may differ.
+			anyHomeTry, anyAwayTry := false, false
+			for _, row := range rates {
+				if row[0] > 0 {
+					anyHomeTry = true
 				}
-				if !scalar.EqualWithinAbs(row[2], row[3], 1e-10) {
-					t.Errorf("minute %d: home_penalty (%f) != away_penalty (%f)",
-						minute, row[2], row[3])
+				if row[1] > 0 {
+					anyAwayTry = true
 				}
-				if !scalar.EqualWithinAbs(row[4], row[5], 1e-10) {
-					t.Errorf("minute %d: home_yellow (%f) != away_yellow (%f)",
-						minute, row[4], row[5])
-				}
+			}
+			if !anyHomeTry {
+				t.Error("all home try rates are zero")
+			}
+			if !anyAwayTry {
+				t.Error("all away try rates are zero")
 			}
 
 			// At least some try rates should be non-zero.
@@ -66,7 +65,7 @@ func TestRunMatchSimulationsWithBaseline(t *testing.T) {
 	t.Run(
 		"test that simulations with baseline produce valid results",
 		func(t *testing.T) {
-			baselineRates, err := ComputeSmoothedBaselineRates("../../dat/events.csv")
+			baselineRates, err := ComputeSmoothedBaselineRates("../../dat/events.csv", "../../dat/players.csv")
 			if err != nil {
 				t.Fatalf("failed to compute baseline rates: %v", err)
 			}
@@ -116,7 +115,7 @@ func TestMatchBaselineCovariateRateTraining(t *testing.T) {
 				t.Fatalf("failed to load data: %v", err)
 			}
 
-			baselineRates, err := ComputeSmoothedBaselineRates("../../dat/events.csv")
+			baselineRates, err := ComputeSmoothedBaselineRates("../../dat/events.csv", "../../dat/players.csv")
 			if err != nil {
 				t.Fatalf("failed to compute baseline rates: %v", err)
 			}

@@ -174,7 +174,7 @@ func TestBuildMultiGameBaselineCovariateStorage(t *testing.T) {
 	t.Run(
 		"test that multi-game storage concatenates correctly",
 		func(t *testing.T) {
-			baselineRates, err := ComputeSmoothedBaselineRates("../../dat/events.csv")
+			baselineRates, err := ComputeSmoothedBaselineRates("../../dat/events.csv", "../../dat/players.csv")
 			if err != nil {
 				t.Fatalf("failed to compute baseline: %v", err)
 			}

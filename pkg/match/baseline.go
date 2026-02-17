@@ -15,13 +15,13 @@ import (
 const (
 	// pilotBandwidth is the half-width used in the first pass to estimate
 	// local variance at each minute.
-	pilotBandwidth = 3
+	pilotBandwidth = 5
 	// minBandwidth and maxBandwidth clamp the adaptive half-width.
-	minBandwidth = 3
-	maxBandwidth = 10
+	minBandwidth = 5
+	maxBandwidth = 14
 	// bandwidthScale controls how strongly local variance widens the kernel.
 	// Adaptive half-width = clamp(bandwidthScale * localStdDev, min, max).
-	bandwidthScale = 4.0
+	bandwidthScale = 5.0
 )
 
 // computeAdaptiveKernelRanges returns a per-minute [L, U] smoothing range
@@ -97,13 +97,23 @@ type smoothingKernelRange struct{ L, U int }
 var rateEventTypes = []string{"try", "penalty goal", "yellow card"}
 
 // ComputeSmoothedBaselineRates computes per-minute baseline event rates
-// from multi-game smoothed averages. For each rate event type, the raw
-// per-minute counts across all games are smoothed with a 5-minute kernel,
-// then divided by the number of games and split equally between home and
-// away (any home/away asymmetry is captured by the model intercept).
+// from multi-game smoothed averages, fitting home and away rates separately.
+// For each rate event type, the raw per-minute counts are split by home/away
+// team, smoothed independently with an adaptive kernel, then divided by the
+// number of games.
 //
 // Returns [][]float64 indexed by minute, each row length RateEventWidth (6).
-func ComputeSmoothedBaselineRates(eventsPath string) ([][]float64, error) {
+func ComputeSmoothedBaselineRates(eventsPath, playersPath string) ([][]float64, error) {
+	// Get home team IDs per game from players data.
+	games, err := ListGames(playersPath)
+	if err != nil {
+		return nil, fmt.Errorf("listing games: %w", err)
+	}
+	homeTeamByGame := make(map[int]int, len(games))
+	for _, g := range games {
+		homeTeamByGame[g.GameID] = g.HomeTeamID
+	}
+
 	f, err := os.Open(eventsPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open %s: %w", eventsPath, err)
@@ -124,13 +134,13 @@ func ComputeSmoothedBaselineRates(eventsPath string) ([][]float64, error) {
 		colIdx[h] = i
 	}
 
-	// Count games and build per-minute raw event counts across all games.
-	// rawCounts[minute][eventTypeIdx] = total count across all games.
+	// Count games and build per-minute raw event counts split by home/away.
 	gameSet := make(map[int]struct{})
 	maxMinute := 0
 	type eventRecord struct {
 		minute  int
 		evtType string
+		isHome  bool
 	}
 	var events []eventRecord
 
@@ -144,8 +154,13 @@ func ComputeSmoothedBaselineRates(eventsPath string) ([][]float64, error) {
 		if err != nil {
 			continue
 		}
+		teamID, err := strconv.Atoi(row[colIdx["team_id"]])
+		if err != nil {
+			continue
+		}
 		evtType := row[colIdx["event_type"]]
-		events = append(events, eventRecord{minute: minute, evtType: evtType})
+		isHome := teamID == homeTeamByGame[gid]
+		events = append(events, eventRecord{minute: minute, evtType: evtType, isHome: isHome})
 		if minute > maxMinute {
 			maxMinute = minute
 		}
@@ -156,10 +171,13 @@ func ComputeSmoothedBaselineRates(eventsPath string) ([][]float64, error) {
 		return nil, fmt.Errorf("no games found in %s", eventsPath)
 	}
 
-	// Build raw counts: rawCounts[minute][evtTypeIdx]
-	rawCounts := make([][]float64, maxMinute+1)
-	for t := range rawCounts {
-		rawCounts[t] = make([]float64, len(rateEventTypes))
+	// Build raw counts separately for home and away.
+	nEvtTypes := len(rateEventTypes)
+	rawCountsHome := make([][]float64, maxMinute+1)
+	rawCountsAway := make([][]float64, maxMinute+1)
+	for t := range rawCountsHome {
+		rawCountsHome[t] = make([]float64, nEvtTypes)
+		rawCountsAway[t] = make([]float64, nEvtTypes)
 	}
 	evtTypeIdx := make(map[string]int)
 	for i, et := range rateEventTypes {
@@ -171,34 +189,42 @@ func ComputeSmoothedBaselineRates(eventsPath string) ([][]float64, error) {
 			continue
 		}
 		if ev.minute <= maxMinute {
-			rawCounts[ev.minute][idx]++
+			if ev.isHome {
+				rawCountsHome[ev.minute][idx]++
+			} else {
+				rawCountsAway[ev.minute][idx]++
+			}
 		}
 	}
 
-	// Compute adaptive smoothing kernel ranges from the raw data.
-	kernelRanges := computeAdaptiveKernelRanges(rawCounts, 40)
+	// Compute adaptive smoothing kernel ranges from total raw data.
+	rawCountsTotal := make([][]float64, maxMinute+1)
+	for t := range rawCountsTotal {
+		rawCountsTotal[t] = make([]float64, nEvtTypes)
+		for j := 0; j < nEvtTypes; j++ {
+			rawCountsTotal[t][j] = rawCountsHome[t][j] + rawCountsAway[t][j]
+		}
+	}
+	kernelRanges := computeAdaptiveKernelRanges(rawCountsTotal, 40)
 
-	// Apply smoothing kernel and convert to per-game rates split home/away.
+	// Apply smoothing kernel and convert to per-game rates.
 	rates := make([][]float64, maxMinute+1)
 	for t := 0; t <= maxMinute; t++ {
 		row := make([]float64, RateEventWidth)
 		kernel := kernelRanges[t]
 		for evtIdx, evtType := range rateEventTypes {
-			sum := 0.0
+			sumHome, sumAway := 0.0, 0.0
 			count := 0
 			for m := kernel.L; m <= kernel.U && m <= maxMinute; m++ {
-				sum += rawCounts[m][evtIdx]
+				sumHome += rawCountsHome[m][evtIdx]
+				sumAway += rawCountsAway[m][evtIdx]
 				count++
 			}
-			smoothedCount := 0.0
-			if count > 0 {
-				smoothedCount = sum / float64(count)
-			}
-			// Per-game rate, split equally between home and away.
-			perGameRate := smoothedCount / float64(nGames)
 			indices := smoothedEventTypeToRateIndices[evtType]
-			row[indices[0]] = perGameRate / 2.0
-			row[indices[1]] = perGameRate / 2.0
+			if count > 0 {
+				row[indices[0]] = (sumHome / float64(count)) / float64(nGames)
+				row[indices[1]] = (sumAway / float64(count)) / float64(nGames)
+			}
 		}
 		rates[t] = row
 	}

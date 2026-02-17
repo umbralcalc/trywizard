@@ -477,7 +477,7 @@ func RunMultiGameBaselineCovariateTraining(
 	descentIterations int,
 	windowDepth int,
 ) ([]float64, error) {
-	baselineRates, err := ComputeSmoothedBaselineRates(eventsPath)
+	baselineRates, err := ComputeSmoothedBaselineRates(eventsPath, playersPath)
 	if err != nil {
 		return nil, fmt.Errorf("computing baseline rates: %w", err)
 	}
