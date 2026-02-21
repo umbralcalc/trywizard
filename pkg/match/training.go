@@ -266,6 +266,7 @@ func NewMatchCovariateRateTrainingPartition(
 	learningRate float64,
 	descentIterations int,
 	windowDepth int,
+	warmStart bool,
 ) *simulator.PartitionConfig {
 	return analysis.NewLikelihoodMeanFunctionFitPartition(
 		analysis.AppliedLikelihoodMeanFunctionFit{
@@ -288,6 +289,7 @@ func NewMatchCovariateRateTrainingPartition(
 			},
 			LearningRate:      learningRate,
 			DescentIterations: descentIterations,
+			WarmStart:         warmStart,
 		},
 		storage,
 	)
@@ -304,9 +306,10 @@ func RunMatchCovariateRateTraining(
 	learningRate float64,
 	descentIterations int,
 	windowDepth int,
+	warmStart bool,
 ) *simulator.StateTimeStorage {
 	fit := NewMatchCovariateRateTrainingPartition(
-		storage, learningRate, descentIterations, windowDepth,
+		storage, learningRate, descentIterations, windowDepth, warmStart,
 	)
 	fit.Params.Set("gradient_descent/init_state_values", initCoeffs)
 	fit.Params.Set("gradient_descent/ascent", []float64{1.0})
@@ -332,6 +335,7 @@ func NewMatchBaselineCovariateRateTrainingPartition(
 	learningRate float64,
 	descentIterations int,
 	windowDepth int,
+	warmStart bool,
 ) *simulator.PartitionConfig {
 	return analysis.NewLikelihoodMeanFunctionFitPartition(
 		analysis.AppliedLikelihoodMeanFunctionFit{
@@ -355,6 +359,7 @@ func NewMatchBaselineCovariateRateTrainingPartition(
 			},
 			LearningRate:      learningRate,
 			DescentIterations: descentIterations,
+			WarmStart:         warmStart,
 		},
 		storage,
 	)
@@ -368,9 +373,10 @@ func RunMatchBaselineCovariateRateTraining(
 	learningRate float64,
 	descentIterations int,
 	windowDepth int,
+	warmStart bool,
 ) *simulator.StateTimeStorage {
 	fit := NewMatchBaselineCovariateRateTrainingPartition(
-		storage, learningRate, descentIterations, windowDepth,
+		storage, learningRate, descentIterations, windowDepth, warmStart,
 	)
 	fit.Params.Set("gradient_descent/init_state_values", initCoeffs)
 	fit.Params.Set("gradient_descent/ascent", []float64{1.0})
@@ -467,6 +473,65 @@ func BuildMultiGameBaselineCovariateStorage(
 	return combined, nil
 }
 
+// RunMultiGameBaselineCovariateTrainingFull trains the covariate rate model
+// using warm-started online SGD across all games jointly. windowDepth controls
+// the mini-batch size seen by each outer step; descentIterations controls the
+// number of inner gradient steps taken per outer step. Running for nEpochs
+// passes (each epoch rebuilds the storage and initialises from the previous
+// epoch's final coefficients) enables convergence to the global MLE.
+func RunMultiGameBaselineCovariateTrainingFull(
+	eventsPath string,
+	playersPath string,
+	learningRate float64,
+	windowDepth int,
+	descentIterations int,
+	nEpochs int,
+) ([]float64, error) {
+	baselineRates, err := ComputeSmoothedBaselineRates(eventsPath, playersPath)
+	if err != nil {
+		return nil, fmt.Errorf("computing baseline rates: %w", err)
+	}
+
+	if descentIterations > windowDepth {
+		descentIterations = windowDepth
+	}
+
+	firstStorage, err := BuildMultiGameBaselineCovariateStorage(
+		eventsPath, playersPath, baselineRates,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("building multi-game storage: %w", err)
+	}
+
+	coeffs := InitCoefficientsWithBaseline()
+	for epoch := 0; epoch < nEpochs; epoch++ {
+		// Rebuild the data storage each epoch after the first: each call to
+		// RunMatchBaselineCovariateRateTraining appends its fit partition to the
+		// storage, so we need a clean copy for subsequent epochs.
+		var dataStorage *simulator.StateTimeStorage
+		if epoch == 0 {
+			dataStorage = firstStorage
+		} else {
+			dataStorage, err = BuildMultiGameBaselineCovariateStorage(
+				eventsPath, playersPath, baselineRates,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("epoch %d: building storage: %w", epoch, err)
+			}
+		}
+
+		outputStorage := RunMatchBaselineCovariateRateTraining(
+			dataStorage, coeffs, learningRate, descentIterations, windowDepth, true,
+		)
+		newCoeffs := ExtractFittedBaselineCovariateCoefficients(outputStorage)
+		if newCoeffs == nil {
+			return nil, fmt.Errorf("epoch %d produced no output", epoch)
+		}
+		coeffs = newCoeffs
+	}
+	return coeffs, nil
+}
+
 // RunMultiGameBaselineCovariateTraining trains the covariate rate model
 // across all games jointly using baseline-offset Poisson GLM gradient descent.
 // Returns the fitted coefficients (length TotalCoeffWidth = 54).
@@ -492,7 +557,7 @@ func RunMultiGameBaselineCovariateTraining(
 	initCoeffs := InitCoefficientsWithBaseline()
 
 	outputStorage := RunMatchBaselineCovariateRateTraining(
-		storage, initCoeffs, learningRate, descentIterations, windowDepth,
+		storage, initCoeffs, learningRate, descentIterations, windowDepth, false,
 	)
 
 	coeffs := ExtractFittedBaselineCovariateCoefficients(outputStorage)

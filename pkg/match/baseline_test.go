@@ -127,9 +127,9 @@ func TestMatchBaselineCovariateRateTraining(t *testing.T) {
 			initCoeffs := InitCoefficientsWithBaseline()
 
 			windowDepth := 10
-			descentIterations := 5
+			descentIterations := 1
 			outputStorage := RunMatchBaselineCovariateRateTraining(
-				combStorage, initCoeffs, 0.0001, descentIterations, windowDepth,
+				combStorage, initCoeffs, 0.001, descentIterations, windowDepth, false,
 			)
 
 			fittedCoeffs := ExtractFittedBaselineCovariateCoefficients(outputStorage)

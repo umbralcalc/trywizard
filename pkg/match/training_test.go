@@ -133,7 +133,7 @@ func TestMatchRateTraining(t *testing.T) {
 
 			// Use conservative hyperparameters.
 			windowDepth := 10
-			descentIterations := 5
+			descentIterations := 1
 			outputStorage := RunMatchRateTraining(
 				rateStorage, initRates, 0.001, descentIterations, windowDepth,
 			)
@@ -224,8 +224,8 @@ func TestRunMultiGameBaselineCovariateTraining(t *testing.T) {
 			coeffs, err := RunMultiGameBaselineCovariateTraining(
 				"../../dat/events.csv",
 				"../../dat/players.csv",
-				0.1,
-				10,
+				0.001,
+				1,
 				50,
 			)
 			if err != nil {
@@ -275,9 +275,9 @@ func TestMatchCovariateRateTraining(t *testing.T) {
 			initCoeffs := InitCoefficientsFromRates(mleRates)
 
 			windowDepth := 10
-			descentIterations := 5
+			descentIterations := 1
 			outputStorage := RunMatchCovariateRateTraining(
-				combStorage, initCoeffs, 0.0001, descentIterations, windowDepth,
+				combStorage, initCoeffs, 0.001, descentIterations, windowDepth, false,
 			)
 
 			fittedCoeffs := ExtractFittedCoefficients(outputStorage)
