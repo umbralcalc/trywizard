@@ -11,8 +11,8 @@ The simulator models a rugby match as a system of 8 coupled stochastic partition
 ```
 Substitution Covariates ─┐
                          ├─→ Score Rate Coefficients ─→ Score Events (Cox Process) ─→ Conversions ─┐
-Smoothed Baseline Rates ─┘                                                                        ├─→ Match State
-                         ┌─→ Card Rate Coefficients  ─→ Card Events (Cox Process) ────────────────┘
+Smoothed Baseline Rates ─┘                                                                         ├─→ Match State
+                         ┌─→ Card Rate Coefficients  ─→ Card Events (Cox Process) ─────────────────┘
                          └─ (same inputs)
 ```
 
