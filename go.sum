@@ -47,6 +47,10 @@ github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKs
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/umbralcalc/stochadex v0.0.0-20260329101819-139d2f8ca54e h1:8dLI554Ja1+92tNvnNAIgMrOKenzmewg6UwQR6dHHw0=
 github.com/umbralcalc/stochadex v0.0.0-20260329101819-139d2f8ca54e/go.mod h1:HC1JOujJssk+AxAyidwznH6e5CazlRcoP8mHbbQWumw=
+github.com/umbralcalc/stochadex v0.0.0-20260330061034-1555b7d4e430 h1:rji57sOYEOycmTfI+pQ34cFeAAzYdyOIp7x6XF2HE5U=
+github.com/umbralcalc/stochadex v0.0.0-20260330061034-1555b7d4e430/go.mod h1:HC1JOujJssk+AxAyidwznH6e5CazlRcoP8mHbbQWumw=
+github.com/umbralcalc/stochadex v0.0.0-20260401060408-bfa08abd7fcb h1:PuNCbr9SSQOaw4/fLQyfaXcAFzFfq1r9LwCa+0CD7l4=
+github.com/umbralcalc/stochadex v0.0.0-20260401060408-bfa08abd7fcb/go.mod h1:HC1JOujJssk+AxAyidwznH6e5CazlRcoP8mHbbQWumw=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/exp v0.0.0-20180321215751-8460e604b9de/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=

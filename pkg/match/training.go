@@ -73,7 +73,7 @@ func RateEventsStorage(storage *simulator.StateTimeStorage) *simulator.StateTime
 		for j, idx := range rateEventIndices {
 			rateRow[j] = row[idx]
 		}
-		rateStorage.ConcurrentAppend("events", times[i], rateRow)
+		rateStorage.Append("events", times[i], rateRow)
 	}
 	return rateStorage
 }
@@ -191,7 +191,7 @@ func RateEventsWithCovariatesStorage(
 		if i < len(covariates) {
 			copy(combRow[RateEventWidth:], covariates[i])
 		}
-		combined.ConcurrentAppend("events_with_covariates", times[i], combRow)
+		combined.Append("events_with_covariates", times[i], combRow)
 	}
 	return combined
 }
@@ -219,7 +219,7 @@ func RateEventsWithCovariatesAndBaselineStorage(
 		if i < len(baselineRates) {
 			copy(combRow[RateEventWidth+SubCovWidth:], baselineRates[i])
 		}
-		combined.ConcurrentAppend("events_with_covariates_and_baseline", times[i], combRow)
+		combined.Append("events_with_covariates_and_baseline", times[i], combRow)
 	}
 	return combined
 }
@@ -458,7 +458,7 @@ func BuildMultiGameBaselineCovariateStorage(
 			if minute < len(baselineRates) {
 				copy(combRow[RateEventWidth+SubCovWidth:], baselineRates[minute])
 			}
-			combined.ConcurrentAppend(
+			combined.Append(
 				"events_with_covariates_and_baseline",
 				timeOffset+times[i],
 				combRow,

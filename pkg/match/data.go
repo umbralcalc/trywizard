@@ -161,7 +161,7 @@ func TransformEventsToStateTimeStorage(
 	// Build StateTimeStorage.
 	storage := simulator.NewStateTimeStorage()
 	for minute := 0; minute <= maxMinute; minute++ {
-		storage.ConcurrentAppend("events", float64(minute), counts[minute])
+		storage.Append("events", float64(minute), counts[minute])
 	}
 	return storage, nil
 }
@@ -390,7 +390,7 @@ func TransformEventsWithCovariates(
 
 	times := storage.GetTimes()
 	for i, t := range times {
-		storage.ConcurrentAppend("sub_covariates", t, covariates[i])
+		storage.Append("sub_covariates", t, covariates[i])
 	}
 	return storage, nil
 }
