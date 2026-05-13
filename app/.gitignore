@@ -1,0 +1,9 @@
+# Codegen output — regenerate with `cd app && go run ./cmd/rugby/generate`.
+rugby/widget.html
+rugby/test.html
+rugby/build.sh
+rugby/src/
+
+# Local-preview runtime copy — sync from dexetera via:
+#   cp -R $(go env GOPATH)/pkg/mod/github.com/umbralcalc/dexetera@*/runtime ./app/runtime
+runtime/

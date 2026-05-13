@@ -8,14 +8,6 @@ An event-based rugby match simulator written with the [stochadex framework](http
 
 The simulator models a rugby match as a system of 8 coupled stochastic partitions running minute-by-minute over 80 minutes:
 
-```
-Substitution Covariates ─┐
-                         ├─→ Score Rate Coefficients ─→ Score Events (Cox Process) ─→ Conversions ─┐
-Smoothed Baseline Rates ─┘                                                                         ├─→ Match State
-                         ┌─→ Card Rate Coefficients  ─→ Card Events (Cox Process) ─────────────────┘
-                         └─ (same inputs)
-```
-
 - **Baseline rates** are smoothed per-minute event rates computed from multi-game data using adaptive-bandwidth kernel smoothing, split by home/away.
 - **Score events** (tries and penalties) and **card events** (yellow cards) are generated as Cox processes whose intensities are driven by a log-linear model: `rate = baseline * exp(intercept + covariate effects)`.
 - **Conversions** are Bernoulli draws triggered by each new try.

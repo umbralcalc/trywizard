@@ -45,6 +45,8 @@ github.com/scientificgo/special v0.0.2/go.mod h1:BqiyV7QBWtBCHu7IdcVsPYweRvTcsjM
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKsk=
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
+github.com/umbralcalc/dexetera v0.0.0-20260511203030-c1ebf7acffe3 h1:6RpfUmUu5WI/E5mpP3vw1NO1vKyuaSEH9jGsHlWSpb0=
+github.com/umbralcalc/dexetera v0.0.0-20260511203030-c1ebf7acffe3/go.mod h1:jlE+LR0k6vX5KDHC/i604+1iAw1/plFV8/BK7NnnBuQ=
 github.com/umbralcalc/stochadex v0.0.0-20260329101819-139d2f8ca54e h1:8dLI554Ja1+92tNvnNAIgMrOKenzmewg6UwQR6dHHw0=
 github.com/umbralcalc/stochadex v0.0.0-20260329101819-139d2f8ca54e/go.mod h1:HC1JOujJssk+AxAyidwznH6e5CazlRcoP8mHbbQWumw=
 github.com/umbralcalc/stochadex v0.0.0-20260330061034-1555b7d4e430 h1:rji57sOYEOycmTfI+pQ34cFeAAzYdyOIp7x6XF2HE5U=
