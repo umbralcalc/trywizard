@@ -69,6 +69,7 @@ func NewConfig() *dashboard.Config {
 		// distinct from the line chart's "current trajectory".
 		AddRectangleSet("histogram_bars", 0, 0, &dashboard.ShapeOptions{
 			FillColor: "#7d8aa1",
+			Anchor:    "topLeft",
 		}).
 		// Histogram baseline.
 		AddLine("", HistCanvasX0, axisY0, HistCanvasX0+HistCanvasWidth, axisY0, &dashboard.LineOptions{
