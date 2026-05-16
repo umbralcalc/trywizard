@@ -89,7 +89,7 @@ func NewConfig() *dashboard.Config {
 	vis := vb.Build()
 
 	cfg := dashboard.NewConfigBuilder("rugby").
-		WithDescription("Rugby manager decision support: pick when each home position group comes off the pitch; the simulator (fitted to thousands of real match events) shows how the win-margin distribution shifts.").
+		WithDescription("Rugby manager decision support: pick when each home position group comes off the pitch; the simulator (fitted to thousands of real match events) shows how the win-margin distribution shifts. This is a research model fitted to match events, not a rugby manager decision tool.").
 		WithServerPartition("match_state").
 		WithServerPartition("outcomes").
 		WithServerPartition("histogram_bars").
