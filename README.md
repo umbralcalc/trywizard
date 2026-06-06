@@ -62,11 +62,15 @@ go test -count=1 ./...
 go run github.com/umbralcalc/stochadex/cmd/stochadex --config cfg/match_simulation.yaml
 ```
 
-## Data sources
+## Data sources & licence
 
-This is an entirely non-commercial project intended for research and learning purposes (see the [MIT License](LICENSE)). The data used has been aggregated into a common set of non-publicly shared CSVs from the following sources.
+The **code** in this repository is released under the [MIT License](LICENSE). That licence covers the code only — **not** the match data.
 
-- API: [https://www.sportdevs.com/](https://www.sportdevs.com/)
+This is an entirely non-commercial project for research and learning. The underlying match data was gathered from third-party providers and remains subject to each provider's own terms — it is not ours to relicense and is **not redistributed here**. The raw CSVs are kept out of the repository (`dat/` is git-ignored); only the fitted model coefficients (`app/pkg/rugby/fittedmodel.json`) — aggregate statistical parameters with no match records — are committed.
+
+Match data was sourced primarily from the [SportDevs](https://www.sportdevs.com/) rugby API (free tier). The following were also consulted as references during development:
+
+- API: [https://www.sportdevs.com/](https://www.sportdevs.com/) (free tier)
 - Site: [https://www.rugbypass.com/](https://www.rugbypass.com/)
 - Site: [https://www.rugbydatabase.co.nz/](https://www.rugbydatabase.co.nz/)
 - Site: [https://www.espn.co.uk/rugby/](https://www.espn.co.uk/rugby/)
