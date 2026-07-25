@@ -5,7 +5,9 @@ import (
 	"math"
 
 	"github.com/umbralcalc/stochadex/pkg/analysis"
+
 	"github.com/umbralcalc/stochadex/pkg/inference"
+	"github.com/umbralcalc/stochadex/pkg/macros"
 	"github.com/umbralcalc/stochadex/pkg/simulator"
 )
 
@@ -95,19 +97,19 @@ func NewMatchRateTrainingPartition(
 	descentIterations int,
 	windowDepth int,
 ) *simulator.PartitionConfig {
-	return analysis.NewLikelihoodMeanFunctionFitPartition(
-		analysis.AppliedLikelihoodMeanFunctionFit{
+	return macros.NewLikelihoodMeanFunctionFitPartition(
+		macros.AppliedLikelihoodMeanFunctionFit{
 			Name: "rate_fit",
-			Model: analysis.ParameterisedModelWithGradient{
+			Model: macros.ParameterisedModelWithGradient{
 				Likelihood: &inference.PoissonLikelihoodDistribution{},
 				Params:     simulator.NewParams(make(map[string][]float64)),
 			},
-			Gradient: analysis.LikelihoodMeanGradient{
+			Gradient: macros.LikelihoodMeanGradient{
 				Function: inference.MeanGradientFunc,
 				Width:    RateEventWidth,
 			},
 			Data: analysis.DataRef{PartitionName: "events"},
-			Window: analysis.WindowedPartitions{
+			Window: macros.WindowedPartitions{
 				Data:  []analysis.DataRef{{PartitionName: "events"}},
 				Depth: windowDepth,
 			},
@@ -268,22 +270,22 @@ func NewMatchCovariateRateTrainingPartition(
 	windowDepth int,
 	warmStart bool,
 ) *simulator.PartitionConfig {
-	return analysis.NewLikelihoodMeanFunctionFitPartition(
-		analysis.AppliedLikelihoodMeanFunctionFit{
+	return macros.NewLikelihoodMeanFunctionFitPartition(
+		macros.AppliedLikelihoodMeanFunctionFit{
 			Name: "covariate_rate_fit",
-			Model: analysis.ParameterisedModelWithGradient{
+			Model: macros.ParameterisedModelWithGradient{
 				Likelihood: &PoissonCovariateGLMLikelihood{
 					NRates: RateEventWidth,
 					NCovs:  SubCovWidth,
 				},
 				Params: simulator.NewParams(make(map[string][]float64)),
 			},
-			Gradient: analysis.LikelihoodMeanGradient{
+			Gradient: macros.LikelihoodMeanGradient{
 				Function: inference.MeanGradientFunc,
 				Width:    TotalCoeffWidth,
 			},
 			Data: analysis.DataRef{PartitionName: "events_with_covariates"},
-			Window: analysis.WindowedPartitions{
+			Window: macros.WindowedPartitions{
 				Data:  []analysis.DataRef{{PartitionName: "events_with_covariates"}},
 				Depth: windowDepth,
 			},
@@ -337,10 +339,10 @@ func NewMatchBaselineCovariateRateTrainingPartition(
 	windowDepth int,
 	warmStart bool,
 ) *simulator.PartitionConfig {
-	return analysis.NewLikelihoodMeanFunctionFitPartition(
-		analysis.AppliedLikelihoodMeanFunctionFit{
+	return macros.NewLikelihoodMeanFunctionFitPartition(
+		macros.AppliedLikelihoodMeanFunctionFit{
 			Name: "baseline_covariate_rate_fit",
-			Model: analysis.ParameterisedModelWithGradient{
+			Model: macros.ParameterisedModelWithGradient{
 				Likelihood: &PoissonCovariateGLMLikelihood{
 					NRates:       RateEventWidth,
 					NCovs:        SubCovWidth,
@@ -348,12 +350,12 @@ func NewMatchBaselineCovariateRateTrainingPartition(
 				},
 				Params: simulator.NewParams(make(map[string][]float64)),
 			},
-			Gradient: analysis.LikelihoodMeanGradient{
+			Gradient: macros.LikelihoodMeanGradient{
 				Function: inference.MeanGradientFunc,
 				Width:    TotalCoeffWidth,
 			},
 			Data: analysis.DataRef{PartitionName: "events_with_covariates_and_baseline"},
-			Window: analysis.WindowedPartitions{
+			Window: macros.WindowedPartitions{
 				Data:  []analysis.DataRef{{PartitionName: "events_with_covariates_and_baseline"}},
 				Depth: windowDepth,
 			},
