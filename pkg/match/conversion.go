@@ -16,7 +16,7 @@ import (
 //   - "try_values": upstream from score_events (all 4 values; uses indices 0,1 for try counts)
 //   - "score_events_partition": partition index (via params_as_partitions) for reading previous try counts
 type ConversionIteration struct {
-	uniformDist              *distuv.Uniform
+	uniformDist               *distuv.Uniform
 	scoreEventsPartitionIndex int
 }
 
