@@ -49,6 +49,8 @@ github.com/umbralcalc/dexetera v0.0.0-20260514181804-bf7e3fcf9d94 h1:0mV8gnx+vgA
 github.com/umbralcalc/dexetera v0.0.0-20260514181804-bf7e3fcf9d94/go.mod h1:jlE+LR0k6vX5KDHC/i604+1iAw1/plFV8/BK7NnnBuQ=
 github.com/umbralcalc/stochadex v0.11.0 h1:6TXmP2jj6+VSabFWv/CJm0PSbbwEcFk2v4aJB3AMITc=
 github.com/umbralcalc/stochadex v0.11.0/go.mod h1:ziiqX1xwYlQlq/B1rHct0Kv/VA337NAbfFktXlk3sXs=
+github.com/umbralcalc/stochadex v0.12.0 h1:SXYfvfNA54GSIuTqVBzR/Dv0Reb5LWkQ88JsvzU3czg=
+github.com/umbralcalc/stochadex v0.12.0/go.mod h1:ziiqX1xwYlQlq/B1rHct0Kv/VA337NAbfFktXlk3sXs=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/exp v0.0.0-20180321215751-8460e604b9de/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
