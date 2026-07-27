@@ -4,13 +4,14 @@ package match
 // stochadex's agents.SimulationEnvironment.
 
 import (
+	"math"
 	"testing"
 
 	"github.com/umbralcalc/stochadex/pkg/agents"
 	"github.com/umbralcalc/stochadex/pkg/simulator"
 )
 
-const probeHorizon = 20
+const probeHorizon = 80
 
 // probeCoefficients builds a score-rate coefficient vector with a KNOWN effect:
 // substituting the home front row (covariate 0) shifts the home try rate by
@@ -59,9 +60,17 @@ func newProbeEnvironment(t *testing.T, homeFrontRowEffect float64, seed uint64) 
 			Reward: func(rows map[string][]float64) float64 {
 				return rows["match_state"][StateIdxScoreDiff]
 			},
-			MinReturn:    -600,
-			MaxReturn:    600,
+			MinReturn:    -600 * float64(probeHorizon) / 20,
+			MaxReturn:    600 * float64(probeHorizon) / 20,
 			ScenarioSeed: seed,
+			// Win probability from the current score margin: a logistic on the
+			// scale of a converted try. This is what scores a rollout that runs
+			// out of steps before full time — over 80 minutes that is nearly all
+			// of them.
+			Progress: func(rows map[string][]float64) (float64, bool) {
+				margin := rows["match_state"][StateIdxScoreDiff]
+				return 1 / (1 + math.Exp(-margin/7)), true
+			},
 		})
 }
 
@@ -73,7 +82,8 @@ func planShare(t *testing.T, env *agents.SimulationEnvironment, sims int) (share
 		Simulations:     sims,
 		MaxTreeDepth:    probeHorizon + 1,
 		RolloutMaxSteps: probeHorizon + 1,
-		Rollout:         agents.UniformRandomRollout[[]float64, int](),
+		Rollout: agents.FromProgress(
+			agents.UniformRandomRollout[[]float64, int](), env.Progress),
 	}
 	state := env.InitialState()
 	subs, steps := 0, 0
@@ -123,66 +133,4 @@ func TestProbePlanRespondsToKnownEffect(t *testing.T) {
 			t.Logf("=> mean substitution share %.0f%%", 100*totalShare/planningScenarios)
 		})
 	}
-}
-
-// fixedPolicyReturn runs one action for the whole match.
-func fixedPolicyReturn(t *testing.T, env *agents.SimulationEnvironment, action int) float64 {
-	t.Helper()
-	state := env.InitialState()
-	for {
-		if _, done := env.Terminal(state); done {
-			return env.Return(state)
-		}
-		next, err := env.Apply(state, action)
-		if err != nil {
-			t.Fatalf("Apply: %v", err)
-		}
-		state = next
-	}
-}
-
-// TestProbePlanVersusFixedPolicies asks whether the planner is actually finding
-// the optimum. With a strictly beneficial substitution the best policy is
-// "always", so the planner should approach it — anything well short means the
-// value signal is too noisy for the search budget.
-func TestProbePlanVersusFixedPolicies(t *testing.T) {
-	const scenarios = 6
-	for _, sims := range []int{60, 240, 960} {
-		var planned, always, never float64
-		var share float64
-		for seed := uint64(1); seed <= scenarios; seed++ {
-			env := newProbeEnvironment(t, 1.2, seed)
-			s, r := planShare(t, env, sims)
-			share += s
-			planned += r
-			always += fixedPolicyReturn(t, newProbeEnvironment(t, 1.2, seed), 1)
-			never += fixedPolicyReturn(t, newProbeEnvironment(t, 1.2, seed), 0)
-		}
-		t.Logf("sims=%3d  planner %7.1f (subbed %.0f%%) | always %7.1f | never %7.1f",
-			sims, planned/scenarios, 100*share/scenarios,
-			always/scenarios, never/scenarios)
-	}
-}
-
-// TestProbeReturnSpread measures how noisy the return actually is, to tell
-// whether the planner-vs-always comparison above is signal or scatter.
-func TestProbeReturnSpread(t *testing.T) {
-	const scenarios = 40
-	var sum, sumSq float64
-	for seed := uint64(1); seed <= scenarios; seed++ {
-		r := fixedPolicyReturn(t, newProbeEnvironment(t, 1.2, seed), 1)
-		sum += r
-		sumSq += r * r
-	}
-	mean := sum / scenarios
-	variance := sumSq/scenarios - mean*mean
-	sd := 0.0
-	if variance > 0 {
-		sd = variance
-		for i := 0; i < 40; i++ {
-			sd = 0.5 * (sd + variance/sd)
-		}
-	}
-	t.Logf("always-substitute return over %d scenarios: mean %.1f, sd %.1f, "+
-		"standard error at n=6 is %.1f", scenarios, mean, sd, sd/2.449)
 }
