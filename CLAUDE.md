@@ -21,50 +21,44 @@ type Iteration interface {
 - `timestepsHistory.Values.AtVec(0)` is the current time. `timestepsHistory.NextIncrement` is the upcoming time step.
 - Partitions communicate by wiring one partition's output state into another's params via `params_from_upstream` in config.
 
-## YAML Config Format (API Code-Generation Path)
+## YAML Config Format
 
-Simulations are defined in YAML and run via the stochadex CLI, which generates and executes Go code.
+Configs are pure data: every component is a `{type: ...}` spec, bespoke maths goes in
+`expressions:`, and the stochadex CLI runs them in-process (no Go, no code generation). The
+`stochadex-model` skill is the full authoring guide; the shape is:
 
 ```yaml
+inputs:                            # the one place data comes in
+  observed: {source: {csv: {path: dat/observed.csv, time_column: 0, state_columns: {x: [1]}}}}
 main:
   partitions:
   - name: my_partition              # unique name
-    iteration: myVar                # references a variable from extra_vars
+    iteration: {type: wiener_process}   # a registered iteration, or omit and give expressions:
     params:
-      some_param: [1.0, 2.0]       # all param values are []float64
+      some_param: [1.0, 2.0]        # all param values are []float64
     params_from_upstream:           # wire upstream partition output → this partition's params
-      latest_values:
-        upstream: other_partition   # name of the upstream partition
+      latest_values: {upstream: other_partition}
     params_as_partitions:           # reference partition names as param values (resolved to indices)
       data_partition: [some_partition]
-    init_state_values: [0.0, 0.0]  # initial state (determines state_width)
+    init_state_values: [0.0, 0.0]   # initial state (determines state_width)
     state_history_depth: 1          # rolling window size
-    seed: 1234                      # RNG seed (0 = no randomness needed)
-    extra_packages:                 # Go import paths
-    - github.com/umbralcalc/stochadex/pkg/continuous
-    extra_vars:                     # Go variable declarations
-    - myVar: "&continuous.WienerProcessIteration{}"
-
+    seed: 1234                      # RNG seed
+  - name: replayed
+    iteration: {type: from_input, input: observed}   # replay an input's partition
+    state_history_depth: 1
   simulation:
-    output_condition: "&simulator.EveryStepOutputCondition{}"
-    output_function: "&simulator.StdoutOutputFunction{}"
-    termination_condition: "&simulator.NumberOfStepsTerminationCondition{MaxNumberOfSteps: 100}"
-    timestep_function: "&simulator.ConstantTimestepFunction{Stepsize: 1.0}"
+    termination_condition: {type: number_of_steps, max_steps: 100}
+    timestep_function: {type: constant, stepsize: 1.0}
     init_time_value: 0.0
+outputs:                           # the one place results go out (none: every step to stdout)
+- {name: log, function: {type: json_log, path: ./dat/run.log}}
 ```
 
-### Common Output Functions
-- `&simulator.StdoutOutputFunction{}` — print to stdout
-- `simulator.NewJsonLogOutputFunction("./data.log")` — write JSON log file
-- `&simulator.NilOutputFunction{}` — no output (for embedded sims)
-
-### Common Termination Conditions
-- `&simulator.NumberOfStepsTerminationCondition{MaxNumberOfSteps: N}`
-- `&simulator.TimeElapsedTerminationCondition{MaxTimeElapsed: T}`
-
-### Common Timestep Functions
-- `&simulator.ConstantTimestepFunction{Stepsize: 0.1}`
-- `&simulator.ExponentialDistributionTimestepFunction{RateLambda: 1.0}`
+Output functions: `stdout`, `json_log{path}`, `nil`, and more (see the skill). Termination
+conditions: `number_of_steps{max_steps}`, `time_elapsed{max_time_elapsed}`. Timestep
+functions: `constant{stepsize}`, `exponential_distribution{mean}`. The older top-level
+`data:` block and `simulation.output_condition` / `output_function` pair are deprecated
+(stochadex prints a notice naming the replacement); write `inputs:` and `outputs:`.
 
 ## Build & Run
 
