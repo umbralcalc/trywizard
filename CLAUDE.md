@@ -30,26 +30,25 @@ Configs are pure data: every component is a `{type: ...}` spec, bespoke maths go
 ```yaml
 inputs:                            # the one place data comes in
   observed: {source: {csv: {path: dat/observed.csv, time_column: 0, state_columns: {x: [1]}}}}
-main:
-  partitions:
-  - name: my_partition              # unique name
-    iteration: {type: wiener_process}   # a registered iteration, or omit and give expressions:
-    params:
-      some_param: [1.0, 2.0]        # all param values are []float64
-    params_from_upstream:           # wire upstream partition output → this partition's params
-      latest_values: {upstream: other_partition}
-    params_as_partitions:           # reference partition names as param values (resolved to indices)
-      data_partition: [some_partition]
-    init_state_values: [0.0, 0.0]   # initial state (determines state_width)
-    state_history_depth: 1          # rolling window size
-    seed: 1234                      # RNG seed
-  - name: replayed
-    iteration: {type: from_input, input: observed}   # replay an input's partition
-    state_history_depth: 1
-  simulation:
-    termination_condition: {type: number_of_steps, max_steps: 100}
-    timestep_function: {type: constant, stepsize: 1.0}
-    init_time_value: 0.0
+partitions:
+- name: my_partition              # unique name
+  iteration: {type: wiener_process}   # a registered iteration, or omit and give expressions:
+  params:
+    some_param: [1.0, 2.0]        # all param values are []float64
+  params_from_upstream:           # wire upstream partition output → this partition's params
+    latest_values: {upstream: other_partition}
+  params_as_partitions:           # reference partition names as param values (resolved to indices)
+    data_partition: [some_partition]
+  init_state_values: [0.0, 0.0]   # initial state (determines state_width)
+  state_history_depth: 1          # rolling window size
+  seed: 1234                      # RNG seed
+- name: replayed
+  iteration: {type: from_input, input: observed}   # replay an input's partition
+  state_history_depth: 1
+simulation:
+  termination_condition: {type: number_of_steps, max_steps: 100}
+  timestep_function: {type: constant, stepsize: 1.0}
+  init_time_value: 0.0
 outputs:                           # the one place results go out (none: every step to stdout)
 - {name: log, function: {type: json_log, path: ./dat/run.log}}
 ```

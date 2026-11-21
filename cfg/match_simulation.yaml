@@ -7,128 +7,127 @@
 # MatchStateFunction — all ordinary maths, translated below. The conversion draw is a
 # per-try Bernoulli loop in the Go; here it is a single binomial(n, p) draw, which is the
 # same process distributionally (n is 0 or 1 per step from the thinned Cox process).
-main:
-  partitions:
+partitions:
 
-  # Log-linear rate model for scoring events (tries + penalties). No covariates and no
-  # baseline in this config, so rate_i = exp(coefficients_i).
-  - name: score_rates
-    params:
-      coefficients: [-2.45, -3.0, -3.5, -3.5]
-    init_state_values: [0.0, 0.0, 0.0, 0.0]
-    state_history_depth: 1
-    seed: 0
+# Log-linear rate model for scoring events (tries + penalties). No covariates and no
+# baseline in this config, so rate_i = exp(coefficients_i).
+- name: score_rates
+  params:
+    coefficients: [-2.45, -3.0, -3.5, -3.5]
+  init_state_values: [0.0, 0.0, 0.0, 0.0]
+  state_history_depth: 1
+  seed: 0
 
-  # Log-linear rate model for card events (yellow cards). rate_i = exp(coefficients_i).
-  - name: card_rates
-    params:
-      coefficients: [-4.4, -14.0]
-    init_state_values: [0.0, 0.0]
-    state_history_depth: 1
-    seed: 0
+# Log-linear rate model for card events (yellow cards). rate_i = exp(coefficients_i).
+- name: card_rates
+  params:
+    coefficients: [-4.4, -14.0]
+  init_state_values: [0.0, 0.0]
+  state_history_depth: 1
+  seed: 0
 
-  # Cox process for scoring events: [home_tries, away_tries, home_penalties, away_penalties]
-  - name: score_events
-    iteration: {type: cox_process}
-    params: {}
-    params_from_upstream:
-      rates:
-        upstream: score_rates
-    init_state_values: [0.0, 0.0, 0.0, 0.0]
-    state_history_depth: 2
-    seed: 7832
+# Cox process for scoring events: [home_tries, away_tries, home_penalties, away_penalties]
+- name: score_events
+  iteration: {type: cox_process}
+  params: {}
+  params_from_upstream:
+    rates:
+      upstream: score_rates
+  init_state_values: [0.0, 0.0, 0.0, 0.0]
+  state_history_depth: 2
+  seed: 7832
 
-  # Cox process for card events: [home_yellow, away_yellow]
-  - name: card_events
-    iteration: {type: cox_process}
-    params: {}
-    params_from_upstream:
-      rates:
-        upstream: card_rates
-    init_state_values: [0.0, 0.0]
-    state_history_depth: 11
-    seed: 7833
+# Cox process for card events: [home_yellow, away_yellow]
+- name: card_events
+  iteration: {type: cox_process}
+  params: {}
+  params_from_upstream:
+    rates:
+      upstream: card_rates
+  init_state_values: [0.0, 0.0]
+  state_history_depth: 11
+  seed: 7833
 
-  # Conversion events: cumulative [home_conversions, away_conversions]. Each new try
-  # (current tries minus previous committed tries) converts with conversion_probs.
-  - name: conversion_events
-    params:
-      conversion_probs: [0.7, 0.7]
-    params_from_upstream:
-      try_values:
-        upstream: score_events
-    init_state_values: [0.0, 0.0]
-    state_history_depth: 1
-    seed: 7834
+# Conversion events: cumulative [home_conversions, away_conversions]. Each new try
+# (current tries minus previous committed tries) converts with conversion_probs.
+- name: conversion_events
+  params:
+    conversion_probs: [0.7, 0.7]
+  params_from_upstream:
+    try_values:
+      upstream: score_events
+  init_state_values: [0.0, 0.0]
+  state_history_depth: 1
+  seed: 7834
 
-  # Derived match state: [home_score, away_score, score_diff, home_active_yellow,
-  # away_active_yellow, half].
-  - name: match_state
-    params: {}
-    params_from_upstream:
-      score_values:
-        upstream: score_events
-      conversion_values:
-        upstream: conversion_events
-      card_values:
-        upstream: card_events
-    init_state_values: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    state_history_depth: 1
-    seed: 0
+# Derived match state: [home_score, away_score, score_diff, home_active_yellow,
+# away_active_yellow, half].
+- name: match_state
+  params: {}
+  params_from_upstream:
+    score_values:
+      upstream: score_events
+    conversion_values:
+      upstream: conversion_events
+    card_values:
+      upstream: card_events
+  init_state_values: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  state_history_depth: 1
+  seed: 0
 
-  expressions:
+expressions:
 
-  - partition: score_rates
-    fields:
-    - {name: rates, width: 4}
-    outputs:
-    - "exp(coefficients)"
+- partition: score_rates
+  fields:
+  - {name: rates, width: 4}
+  outputs:
+  - "exp(coefficients)"
 
-  - partition: card_rates
-    fields:
-    - {name: rates, width: 2}
-    outputs:
-    - "exp(coefficients)"
+- partition: card_rates
+  fields:
+  - {name: rates, width: 2}
+  outputs:
+  - "exp(coefficients)"
 
-  # try_values is the current (within-step) score_events output; the upstream alias sc
-  # reads score_events' previous committed row (lag-1), exactly as the Go read
-  # stateHistories[score_events].At(0, ...). new tries = current - previous.
-  - partition: conversion_events
-    fields:
-    - {name: home_conv}
-    - {name: away_conv}
-    upstreams:
-      sc: score_events
-    outputs:
-    - "home_conv + where(try_values[0] - sc[0] > 0, shared(binomial(try_values[0] - sc[0], conversion_probs[0])), 0)"
-    - "away_conv + where(try_values[1] - sc[1] > 0, shared(binomial(try_values[1] - sc[1], conversion_probs[1])), 0)"
+# try_values is the current (within-step) score_events output; the upstream alias sc
+# reads score_events' previous committed row (lag-1), exactly as the Go read
+# stateHistories[score_events].At(0, ...). new tries = current - previous.
+- partition: conversion_events
+  fields:
+  - {name: home_conv}
+  - {name: away_conv}
+  upstreams:
+    sc: score_events
+  outputs:
+  - "home_conv + where(try_values[0] - sc[0] > 0, shared(binomial(try_values[0] - sc[0], conversion_probs[0])), 0)"
+  - "away_conv + where(try_values[1] - sc[1] > 0, shared(binomial(try_values[1] - sc[1], conversion_probs[1])), 0)"
 
-  # Active yellows = current cumulative cards minus the cumulative 10 steps ago
-  # (YellowCardMinutes = 10; card_events keeps 11 rows). half indicator flips at t >= 40.
-  - partition: match_state
-    fields:
-    - {name: home_score}
-    - {name: away_score}
-    - {name: score_diff}
-    - {name: home_active_yellow}
-    - {name: away_active_yellow}
-    - {name: half}
-    upstreams:
-      card: card_events
-    bindings:
-    - {name: home_score_val, expr: "score_values[0] * 5 + conversion_values[0] * 2 + score_values[2] * 3"}
-    - {name: away_score_val, expr: "score_values[1] * 5 + conversion_values[1] * 2 + score_values[3] * 3"}
-    outputs:
-    - "home_score_val"
-    - "away_score_val"
-    - "home_score_val - away_score_val"
-    - "card_values[0] - lag(card, 10)[0]"
-    - "card_values[1] - lag(card, 10)[1]"
-    - "where(t >= 40, 1, 0)"
+# Active yellows = current cumulative cards minus the cumulative 10 steps ago
+# (YellowCardMinutes = 10; card_events keeps 11 rows). half indicator flips at t >= 40.
+- partition: match_state
+  fields:
+  - {name: home_score}
+  - {name: away_score}
+  - {name: score_diff}
+  - {name: home_active_yellow}
+  - {name: away_active_yellow}
+  - {name: half}
+  upstreams:
+    card: card_events
+  bindings:
+  - {name: home_score_val, expr: "score_values[0] * 5 + conversion_values[0] * 2 + score_values[2] * 3"}
+  - {name: away_score_val, expr: "score_values[1] * 5 + conversion_values[1] * 2 + score_values[3] * 3"}
+  outputs:
+  - "home_score_val"
+  - "away_score_val"
+  - "home_score_val - away_score_val"
+  - "card_values[0] - lag(card, 10)[0]"
+  - "card_values[1] - lag(card, 10)[1]"
+  - "where(t >= 40, 1, 0)"
 
-  simulation:
-    termination_condition: {type: number_of_steps, max_steps: 80}
-    timestep_function: {type: constant, stepsize: 1.0}
-    init_time_value: 0.0
+simulation:
+  termination_condition: {type: number_of_steps, max_steps: 80}
+  timestep_function: {type: constant, stepsize: 1.0}
+  init_time_value: 0.0
 outputs:
 - {name: output, condition: {type: every_step}, function: {type: stdout}}
